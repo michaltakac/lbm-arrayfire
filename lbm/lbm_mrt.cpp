@@ -23,9 +23,9 @@ array normalize(array a, float max)
 static void lbmD3Q27(bool console)
 {
   // Grid length, number and spacing
-  const unsigned nx = 60;
-  const unsigned ny = 30;
-  const unsigned nz = 30;
+  const unsigned nx = 200;
+  const unsigned ny = 60;
+  const unsigned nz = 60;
 
   const unsigned total_nodes = nx * ny * nz;
 
@@ -37,20 +37,26 @@ static void lbmD3Q27(bool console)
   // Discrete/numerical parameters.
   const float dt = 0.2; //0.002;
 
+  const int obstacle_x = nx / 4; // x location of the cylinder
+  const int obstacle_y = ny / 2; // y location of the cylinder
+  const int obstacle_z = nz / 2; // z location of the cylinder
+  const int obstacle_r = ny / 9; // radius of the cylinder
+  printf("obstacle_x: %i\n", obstacle_x);
+
   // Derived nondimensional parameters.
-  float Re = 20.0; //L_p * U_p / nu_p;
+  float Re = 220.0; //L_p * U_p / nu_p;
   // Derived physical parameters.
   float t_p = L_p / U_p;
   // Derived discrete parameters.
   float dh = 1.0 / ((float)nx - 1.0);
   float dh_sq = dh * dh;
   // Lattice speed
-  float u_lb = 1e-2; //dt / dh;
+  float u_lb = 0.04; //dt / dh;
   // Lattice viscosity
-  float nu_lb = u_lb * 40.0/Re; // dt / dh_sq / Re;
+  float nu_lb = u_lb * obstacle_r / Re; // dt / dh_sq / Re;
   // Relaxation time
   float tau = 3 * nu_lb + 0.5;
-  float omega = 1.0;// / tau; // 1.0;
+  float omega = 1.0 / tau; // 1.0;
 
   printf("Reynolds number: %f\n", Re);
   printf("Physical time scale: %fs\n", t_p);
@@ -171,17 +177,17 @@ static void lbmD3Q27(bool console)
 
   // print("CI: ", CI);
 
-  // array BOUND = constant(0, nx, ny, nz);
+  array BOUND = constant(0, nx, ny, nz);
 
   // Flow around obstacle
-  // BOUND(span, span, end) = 1; // top
-  // BOUND(span, span, 0) = 1;   // bottom
-  // BOUND(span, end, span) = 1; // front
-  // BOUND(span, 0, span) = 1;   // back
-  // obstacle
-  // BOUND(20, seq((ny / 2) - 5, (ny / 2) + 5), seq((nz / 2) - 5, (nz / 2) + 5)) = 1;
+  // circle
+  BOUND(span,span,span) = moddims((af::pow(flat(x) - obstacle_x, 2) + af::pow(flat(y) - obstacle_y, 2) + af::pow(flat(z) - obstacle_z, 2)) <= pow(obstacle_r,2), nx, ny, nz);
+  BOUND(span, span, end) = 1; // top
+  BOUND(span, span, 0) = 1;   // bottom
+  BOUND(span, end, span) = 1; // front
+  BOUND(span, 0, span) = 1;   // back
 
-  array BOUND = randu(nx, ny, nz) < 0.9;
+  // array BOUND = randu(nx, ny, nz) < 0.9;
 
   // print("bound: ", BOUND);
 
@@ -389,26 +395,27 @@ static void lbmD3Q27(bool console)
     float sumux = sum<float>(sum(sum(UX)));
     avu = sumux / numactivenodes;
     // printf("avu: %2f", avu);
-    array ux_sq = UX * UX;
-    array uy_sq = UY * UY;
-    array uz_sq = UZ * UZ;
-    array u_sq = ux_sq + uy_sq + uz_sq;
-    array uu = sqrt(u_sq) / avu;
+    array uu = sqrt(moddims(v_sq, nx,ny,nz)) / avu;
     // printf("uu dims = [%lld %lld %lld]\n", uu.dims(0), uu.dims(1), uu.dims(2));
 
     if (!console)
     {
+      std::stringstream titleUXY;
+      std::stringstream titleUXZ;
+      titleUXY << "Velocity field XY, iteration " << iter;
+      titleUXZ << "Velocity field XZ, iteration " << iter;
       (*win)(0, 0).setColorMap(AF_COLORMAP_SPECTRUM);
       (*win)(0, 0).image(transpose(uu(span, span, nz / 2)));
-      (*win)(0, 1).vectorField(flat(x), flat(y), flat(UX), flat(UY), "Velocity field XY");
-      (*win)(1, 1).vectorField(flat(x), flat(z), flat(UX), flat(UZ), "Velocity field XZ");
+      (*win)(0, 1).vectorField(flat(x), flat(y), flat(UX), flat(UY), std::move(titleUXY).str().c_str());
+      (*win)(1, 0).image(transpose(reorder(uu(span, ny / 2, span), 0, 2, 1)));
+      (*win)(1, 1).vectorField(flat(x), flat(z), flat(UX), flat(UZ), std::move(titleUXZ).str().c_str());
       win->show();
     }
     else
     {
-      eval(uu);
-      eval(F);
-      eval(DENSITY);
+      // eval(uu);
+      // eval(F);
+      // eval(DENSITY);
     }
     iter++;
   }

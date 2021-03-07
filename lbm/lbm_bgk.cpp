@@ -35,8 +35,8 @@ array stream(array f) {
 static void lbm(bool console)
 {
   // Grid length, number and spacing
-  const unsigned nx = 700;
-  const unsigned ny = 200;
+  const unsigned nx = 420;
+  const unsigned ny = 180;
 
   const unsigned total_nodes = nx * ny;
 
@@ -46,22 +46,21 @@ static void lbm(bool console)
   const float nu_p = 1.2e-3; // 1.586e-5; // Physical kinematic viscosity.
   const float rho0 = 1.0;
   // Discrete/numerical parameters.
-  const float dt = 1.5; //0.002;
+  const float dt = 1.0; //0.002;
 
-  const int obstacle_x = nx / 4; // x location of the cylinder
+  const int obstacle_x = nx / 5; // x location of the cylinder
   const int obstacle_y = ny / 2; // y location of the cylinder
   const int obstacle_r = ny / 9; // radius of the cylinder
   printf("obstacle_x: %i\n", obstacle_x);
 
   // Derived nondimensional parameters.
-  float Re = 80.0; //L_p * U_p / nu_p;
+  float Re = 120.0; //L_p * U_p / nu_p;
   // Derived physical parameters.
   float t_p = L_p / U_p;
-  // Derived discrete parameters.
-  float dh = 1.0 / ((float)nx - 1.0);
-  float dh_sq = dh * dh;
+
+  // Derived discrete parameters
   // Lattice speed
-  float u_lb = 0.04; //dt / dh;
+  float u_lb = 0.05; //dt / dh;
   // Lattice viscosity
   float nu_lb = u_lb * obstacle_r / Re; // dt / dh_sq / Re;
   // Relaxation time
@@ -70,7 +69,6 @@ static void lbm(bool console)
 
   printf("Reynolds number: %f\n", Re);
   printf("Physical time scale: %fs\n", t_p);
-  printf("dh: %f\n", dh);
   printf("Lattice speed: %f\n", u_lb);
   printf("Lattice viscosity: %f\n", nu_lb);
   printf("Relaxation time: %f\n", tau);
@@ -116,19 +114,8 @@ static void lbm(bool console)
   // BOUND(0, span) = 1; // top
 
   // Flow around obstacle
-  // BOUND(20,seq((ny/2)-5,(ny/2)+5)) = 1; // obstacle
-  for (int i=0;i<nx;i++) {
-    for (int j=0;j<ny;j++) {
-      bool code = (pow((i - obstacle_x),2) + pow((j - obstacle_y),2)) <= pow(obstacle_r,2);
-      BOUND(i,j) = (int)code;
-    }
-  }
-
-  // theta = 0:pi/50:2*pi;
-  // xunit = r * cos(th) + x;
-  // yunit = r * sin(th) + y;
-  // array code = (af::pow((x - obstacle_x),2) + af::pow((j - obstacle_y),2)) <= pow(obstacle_r,2);
-  // BOUND(span,span) =
+  // circle
+  BOUND(span,span) = moddims((af::pow(flat(x) - obstacle_x, 2) + af::pow(flat(y) - obstacle_y, 2)) <= pow(obstacle_r,2), nx, ny);
   BOUND(span,0) = 1; //top
   BOUND(span,end) = 1; //bottom
 
@@ -140,12 +127,12 @@ static void lbm(bool console)
   array REFLECTED = flat(tile(ON,NBI.elements())) + flat(tile(NBI,ON.elements()));
 
   array DENSITY = constant(rho0, nx, ny);
-  array UX = constant(rho0, nx, ny);
-  array UY = constant(rho0, nx, ny);
+  array UX = constant(0, nx, ny);
+  array UY = constant(0, nx, ny);
 
   UX(ON) = 0;
   UY(ON) = 0;
-  DENSITY(ON) = 0;
+  // DENSITY(ON) = 0;
 
   float deltaU = 0.3;
 
@@ -161,12 +148,13 @@ static void lbm(bool console)
   }
 
   unsigned iter = 0;
-  unsigned maxiter = 500;
+  unsigned maxiter = 5000;
 
   sync();
   timer::start();
 
-  while (iter < maxiter) // (!win->close())
+  // while (iter < maxiter)
+  while (!win->close())// (iter < maxiter) // (!win->close())
   {
     F = stream(F);
 
@@ -218,16 +206,25 @@ static void lbm(bool console)
 
     if (!console)
     {
-      // (*win)(0, 0).setColorMap(AF_COLORMAP_SPECTRUM);
-      // (*win)(0, 0).image(transpose(uu));
-      // (*win)(0, 1).vectorField(flat(x), flat(y), flat(UX), flat(UY), "Velocity field");
-      // (*win)(1, 0).image(transpose(DENSITY));
-      // win->show();
+      const char *str = "Velocity field for iteration ";
+      std::stringstream title;
+      title << str << iter;
+      (*win)(0, 0).setColorMap(AF_COLORMAP_SPECTRUM);
+      (*win)(0, 0).image(transpose(uu));
+      (*win)(0, 1).vectorField(flat(x), flat(y), flat(UX), flat(UY), std::move(title).str().c_str());
+      (*win)(0, 0).setColorMap(AF_COLORMAP_HEAT);
+      (*win)(1, 0).image(normalize(transpose(DENSITY), max<float>(DENSITY)));
+      win->show();
     }
     else
     {
       // eval(uu, F, FEQ);
     }
+
+    if (iter % 100 == 0) {
+      printf("%u iterations completed.\n", iter);
+    }
+
     iter++;
   }
 
