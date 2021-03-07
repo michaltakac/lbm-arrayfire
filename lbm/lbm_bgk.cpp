@@ -8,11 +8,6 @@ using namespace af;
 
 Window *win;
 
-array normalize(array a)
-{
-  return (a / (max(abs(a)) * 1.1)) + 0.1;
-}
-
 array normalize(array a, float max)
 {
   float mx = max * 1.1;
@@ -35,8 +30,8 @@ array stream(array f) {
 static void lbm(bool console)
 {
   // Grid length, number and spacing
-  const unsigned nx = 420;
-  const unsigned ny = 180;
+  const unsigned nx = 400;
+  const unsigned ny = 100;
 
   const unsigned total_nodes = nx * ny;
 
@@ -48,29 +43,26 @@ static void lbm(bool console)
   // Discrete/numerical parameters.
   const float dt = 1.0; //0.002;
 
-  const int obstacle_x = nx / 5; // x location of the cylinder
-  const int obstacle_y = ny / 2; // y location of the cylinder
-  const int obstacle_r = ny / 9; // radius of the cylinder
+  const int obstacle_x = nx / 5 + 1; // x location of the cylinder
+  const int obstacle_y = ny / 2 + 3; // y location of the cylinder
+  const int obstacle_r = ny / 10 + 1; // radius of the cylinder
   printf("obstacle_x: %i\n", obstacle_x);
 
   // Derived nondimensional parameters.
-  float Re = 120.0; //L_p * U_p / nu_p;
-  // Derived physical parameters.
-  float t_p = L_p / U_p;
+  float Re = 100.0; // Reynolds number
 
   // Derived discrete parameters
   // Lattice speed
-  float u_lb = 0.05; //dt / dh;
+  float u_max = 0.1; //dt / dh;
   // Lattice viscosity
-  float nu_lb = u_lb * obstacle_r / Re; // dt / dh_sq / Re;
+  float nu = u_max * 2 * obstacle_r / Re; // dt / dh_sq / Re;
   // Relaxation time
-  float tau = 3 * nu_lb + 0.5;
+  float tau = 3 * nu + 0.5;
   float omega = 1.0 / tau; // 1.0;
 
   printf("Reynolds number: %f\n", Re);
-  printf("Physical time scale: %fs\n", t_p);
-  printf("Lattice speed: %f\n", u_lb);
-  printf("Lattice viscosity: %f\n", nu_lb);
+  printf("Lattice speed: %f\n", u_max);
+  printf("Lattice viscosity: %f\n", nu);
   printf("Relaxation time: %f\n", tau);
   printf("Relaxation parameter: %f\n", omega);
 
@@ -172,7 +164,7 @@ static void lbm(bool console)
     UX = (sum(fex, 2) / DENSITY);
     UY = (sum(fey, 2) / DENSITY);
 
-    UX(0,span) = u_lb;
+    UX(0,span) = u_max;
     UX(ON) = 0;
     UY(ON) = 0;
     DENSITY(ON) = 0;
@@ -206,15 +198,17 @@ static void lbm(bool console)
 
     if (!console)
     {
-      const char *str = "Velocity field for iteration ";
-      std::stringstream title;
-      title << str << iter;
-      (*win)(0, 0).setColorMap(AF_COLORMAP_SPECTRUM);
-      (*win)(0, 0).image(transpose(uu));
-      (*win)(0, 1).vectorField(flat(x), flat(y), flat(UX), flat(UY), std::move(title).str().c_str());
-      (*win)(0, 0).setColorMap(AF_COLORMAP_HEAT);
-      (*win)(1, 0).image(normalize(transpose(DENSITY), max<float>(DENSITY)));
-      win->show();
+      if (iter % 10 == 0) {
+        const char *str = "Velocity field for iteration ";
+        std::stringstream title;
+        title << str << iter;
+        (*win)(0, 0).setColorMap(AF_COLORMAP_SPECTRUM);
+        (*win)(0, 0).image(transpose(uu));
+        (*win)(0, 1).vectorField(flat(x), flat(y), flat(UX), flat(UY), std::move(title).str().c_str());
+        (*win)(0, 0).setColorMap(AF_COLORMAP_HEAT);
+        (*win)(1, 0).image(normalize(transpose(DENSITY), max<float>(DENSITY)));
+        win->show();
+      }
     }
     else
     {
@@ -222,7 +216,9 @@ static void lbm(bool console)
     }
 
     if (iter % 100 == 0) {
-      printf("%u iterations completed.\n", iter);
+      float time = timer::stop();
+      float mlups = (total_nodes * iter * 10e-6) / time;
+      printf("%u iterations completed, %fs elapsed (%f MLUPS).\n", iter, time, mlups);
     }
 
     iter++;
