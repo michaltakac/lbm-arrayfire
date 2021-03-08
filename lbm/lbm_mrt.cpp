@@ -15,6 +15,42 @@ array normalize(array a, float max)
   return (a - mn) / (mx - mn);
 }
 
+array stream(array f) {
+    // nearest-neighbours
+    f(span, span, span, 1) = shift(f, 1, 0, 0)(span, span, span, 1);
+    f(span, span, span, 2) = shift(f, -1, 0, 0)(span, span, span, 2);
+    f(span, span, span, 3) = shift(f, 0, 1, 0)(span, span, span, 3);
+    f(span, span, span, 4) = shift(f, 0, -1, 0)(span, span, span, 4);
+    f(span, span, span, 5) = shift(f, 0, 0, 1)(span, span, span, 5);
+    f(span, span, span, 6) = shift(f, 0, 0, -1)(span, span, span, 6);
+    // next-nearest neighbours
+    // xy plane
+    f(span, span, span, 7) = shift(f, 1, 1, 0)(span, span, span, 7);
+    f(span, span, span, 8) = shift(f, -1, 1, 0)(span, span, span, 8);
+    f(span, span, span, 9) = shift(f, 1, -1, 0)(span, span, span, 9);
+    f(span, span, span, 10) = shift(f, -1, -1, 0)(span, span, span, 10);
+    // xz plane
+    f(span, span, span, 11) = shift(f, 1, 0, 1)(span, span, span, 11);
+    f(span, span, span, 12) = shift(f, -1, 0, 1)(span, span, span, 12);
+    f(span, span, span, 13) = shift(f, 1, 0, -1)(span, span, span, 13);
+    f(span, span, span, 14) = shift(f, -1, 0, -1)(span, span, span, 14);
+    // yz plane
+    f(span, span, span, 15) = shift(f, 0, 1, 1)(span, span, span, 15);
+    f(span, span, span, 16) = shift(f, 0, -1, 1)(span, span, span, 16);
+    f(span, span, span, 17) = shift(f, 0, 1, -1)(span, span, span, 17);
+    f(span, span, span, 18) = shift(f, 0, -1, -1)(span, span, span, 18);
+    // next next-nearest neighbours
+    f(span, span, span, 19) = shift(f, 1, 1, 1)(span, span, span, 19);
+    f(span, span, span, 20) = shift(f, -1, 1, 1)(span, span, span, 20);
+    f(span, span, span, 21) = shift(f, 1, -1, 1)(span, span, span, 21);
+    f(span, span, span, 22) = shift(f, -1, -1, 1)(span, span, span, 22);
+    f(span, span, span, 23) = shift(f, 1, 1, -1)(span, span, span, 23);
+    f(span, span, span, 24) = shift(f, -1, 1, -1)(span, span, span, 24);
+    f(span, span, span, 25) = shift(f, 1, -1, -1)(span, span, span, 25);
+    f(span, span, span, 26) = shift(f, -1, -1, -1)(span, span, span, 26);
+    return f;
+}
+
 static void lbmD3Q27(bool console)
 {
   // Grid length, number and spacing
@@ -221,48 +257,11 @@ static void lbmD3Q27(bool console)
   sync();
   timer::start();
 
-  // while (iter < maxiter) 
+  // while (iter < maxiter)
   while (!win->close())
   {
-    /*
-    * STREAMING
-    */
-    // Propagate
     F = moddims(F, nx, ny, nz, 27);
-    // x+ => [nx 1:nx-1] | y+ => [ny 1:ny-1] | z+ => [nz 1:nz-1]
-    // x- => [2:nx 1]    | y- => [2:ny 1]    | z- => [2:nz 1]
-    // nearest-neighbours
-    F(span, span, span, 1) = shift(F, 1, 0, 0)(span, span, span, 1);
-    F(span, span, span, 2) = shift(F, -1, 0, 0)(span, span, span, 2);
-    F(span, span, span, 3) = shift(F, 0, 1, 0)(span, span, span, 3);
-    F(span, span, span, 4) = shift(F, 0, -1, 0)(span, span, span, 4);
-    F(span, span, span, 5) = shift(F, 0, 0, 1)(span, span, span, 5);
-    F(span, span, span, 6) = shift(F, 0, 0, -1)(span, span, span, 6);
-    // next-nearest neighbours
-    // xy plane
-    F(span, span, span, 7) = shift(F, 1, 1, 0)(span, span, span, 7);
-    F(span, span, span, 8) = shift(F, -1, 1, 0)(span, span, span, 8);
-    F(span, span, span, 9) = shift(F, 1, -1, 0)(span, span, span, 9);
-    F(span, span, span, 10) = shift(F, -1, -1, 0)(span, span, span, 10);
-    // xz plane
-    F(span, span, span, 11) = shift(F, 1, 0, 1)(span, span, span, 11);
-    F(span, span, span, 12) = shift(F, -1, 0, 1)(span, span, span, 12);
-    F(span, span, span, 13) = shift(F, 1, 0, -1)(span, span, span, 13);
-    F(span, span, span, 14) = shift(F, -1, 0, -1)(span, span, span, 14);
-    // yz plane
-    F(span, span, span, 15) = shift(F, 0, 1, 1)(span, span, span, 15);
-    F(span, span, span, 16) = shift(F, 0, -1, 1)(span, span, span, 16);
-    F(span, span, span, 17) = shift(F, 0, 1, -1)(span, span, span, 17);
-    F(span, span, span, 18) = shift(F, 0, -1, -1)(span, span, span, 18);
-    // next next-nearest neighbours
-    F(span, span, span, 19) = shift(F, 1, 1, 1)(span, span, span, 19);
-    F(span, span, span, 20) = shift(F, -1, 1, 1)(span, span, span, 20);
-    F(span, span, span, 21) = shift(F, 1, -1, 1)(span, span, span, 21);
-    F(span, span, span, 22) = shift(F, -1, -1, 1)(span, span, span, 22);
-    F(span, span, span, 23) = shift(F, 1, 1, -1)(span, span, span, 23);
-    F(span, span, span, 24) = shift(F, -1, 1, -1)(span, span, span, 24);
-    F(span, span, span, 25) = shift(F, 1, -1, -1)(span, span, span, 25);
-    F(span, span, span, 26) = shift(F, -1, -1, -1)(span, span, span, 26);
+    F = stream(F);
 
     array BOUNCEDBACK = F(TO_REFLECT); // Densities bouncing back at next timestep
 

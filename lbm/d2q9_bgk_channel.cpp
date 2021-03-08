@@ -194,7 +194,8 @@ static void lbm(bool console)
 
     prevavu = avu;
     avu = sum<float>(sum(UX)) / numactivenodes;
-    uu = sqrt(U_SQU) / avu;
+    uu = sqrt(U_SQU);
+    uu(ON) = af::NaN;
 
     if (!console)
     {

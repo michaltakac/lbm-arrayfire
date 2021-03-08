@@ -36,8 +36,8 @@ static void lbm(bool console)
   const unsigned total_nodes = nx * ny;
 
   // Physical parameters.
-  const float ux_lid  = 0.05; // horizontal lid velocity 
-  const float uy_lid = 0;    // vertical lid velocity 
+  const float ux_lid  = 0.05; // horizontal lid velocity
+  const float uy_lid = 0;    // vertical lid velocity
   const float rho0 = 1.0;
 
   float Re = 100.0; // Reynolds number
@@ -65,7 +65,7 @@ static void lbm(bool console)
   array x = tile(range(nx), 1, ny);
   array y = tile(range(dim4(1, ny), 1), nx, 1);
   array coords = join(1, flat(x), flat(y));
-  seq lid = seq(1,nx-1);
+  seq lid = seq(1,nx-2);
 
   //  c4  c3   c2
   //    \  |  /
@@ -142,23 +142,23 @@ static void lbm(bool console)
     UX = (sum(fex, 2) / DENSITY);
     UY = (sum(fey, 2) / DENSITY);
 
-    // MACROSCOPIC (DIRICHLET) BOUNDARY CONDITIONS 
-    UX(lid,ny) = ux_lid; // lid x - velocity 
-    UY(lid,ny) = uy_lid; // lid y - velocity 
+    // MACROSCOPIC (DIRICHLET) BOUNDARY CONDITIONS
+    UX(lid,end) = ux_lid; // lid x - velocity
+    UY(lid,end) = uy_lid; // lid y - velocity
     int dirs1[3] = {0, 1, 5};
     int dirs2[3] = {3, 2, 4};
-    array idxdirs1(9, dirs1);
-    array idxdirs2(9, dirs2);
-    DENSITY(lid,ny) = 1 / (1+UY(lid,ny)) * (sum(F(lid,ny,idxdirs1), 2) + 2*sum(F(lid,ny,idxdirs2), 2) ); 
+    array idxdirs1(3, dirs1);
+    array idxdirs2(3, dirs2);
+    DENSITY(lid,end) = 1 / (1+UY(lid,end)) * (sum(F(lid,end,idxdirs1), 2) + 2*sum(F(lid,end,idxdirs2), 2));
 
     // MICROSCOPIC BOUNDARY CONDITIONS: LID (Zou/He BC)
-    F(lid,ny,7) = F(lid,ny,3) - 2./3.*DENSITY(lid,ny)*UY(lid,ny); 
-    F(lid,ny,8) = F(lid,ny,4) + 1./2.*(F(lid,ny,5)-F(lid,ny,1))+1./2.*DENSITY(lid,ny)*UX(lid,ny) - 1./6.*DENSITY(lid,ny)*UY(lid,ny); 
-    F(lid,ny,6) = F(lid,ny,2) + 1./2.*(F(lid,ny,1)-F(lid,ny,5))-1./2.*DENSITY(lid,ny)*UX(lid,ny) - 1./6.*DENSITY(lid,ny)*UY(lid,ny);
+    F(lid,end,7) = F(lid,end,3) - 2./3.*DENSITY(lid,end)*UY(lid,end);
+    F(lid,end,8) = F(lid,end,4) + 1./2.*(F(lid,end,5)-F(lid,end,1))+1./2.*DENSITY(lid,end)*UX(lid,end) - 1./6.*DENSITY(lid,end)*UY(lid,end);
+    F(lid,end,6) = F(lid,end,2) + 1./2.*(F(lid,end,1)-F(lid,end,5))-1./2.*DENSITY(lid,end)*UX(lid,end) - 1./6.*DENSITY(lid,end)*UY(lid,end);
 
-    // UX(ON) = 0;
-    // UY(ON) = 0;
-    // DENSITY(ON) = 0;
+    UX(ON) = 0;
+    UY(ON) = 0;
+    DENSITY(ON) = 0;
 
     array U_SQU = pow(UX, 2) + pow(UY, 2);
     array U_C2 = UX + UY;
@@ -185,7 +185,8 @@ static void lbm(bool console)
 
     prevavu = avu;
     avu = sum<float>(sum(UX)) / numactivenodes;
-    uu = sqrt(U_SQU) / avu;
+    uu = sqrt(U_SQU) / ux_lid;
+    uu(ON) = af::NaN;
 
     if (!console)
     {
@@ -194,10 +195,10 @@ static void lbm(bool console)
         std::stringstream title;
         title << str << iter;
         (*win)(0, 0).setColorMap(AF_COLORMAP_SPECTRUM);
-        (*win)(0, 0).image(transpose(uu));
+        (*win)(0, 0).image(uu);
         (*win)(0, 1).vectorField(flat(x), flat(y), flat(UX), flat(UY), std::move(title).str().c_str());
         (*win)(0, 0).setColorMap(AF_COLORMAP_HEAT);
-        (*win)(1, 0).image(normalize(transpose(DENSITY), max<float>(DENSITY)));
+        (*win)(1, 0).image(normalize(DENSITY, max<float>(DENSITY)));
         win->show();
       }
     }
