@@ -8,11 +8,6 @@ using namespace af;
 
 Window *win;
 
-array normalize(array a)
-{
-  return (a / (max(abs(a)) * 1.1)) + 0.1;
-}
-
 array normalize(array a, float max)
 {
   float mx = max * 1.1;
@@ -23,11 +18,12 @@ array normalize(array a, float max)
 static void lbmD3Q27(bool console)
 {
   // Grid length, number and spacing
-  const unsigned nx = 200;
-  const unsigned ny = 60;
-  const unsigned nz = 60;
+  const unsigned nx = 50;
+  const unsigned ny = 50;
+  const unsigned nz = 50;
 
   const unsigned total_nodes = nx * ny * nz;
+  printf("total nodes: %i\n", total_nodes);
 
   // Physical parameters.
   const float L_p = 2.5;     //1.1; // Cavity dimension.
@@ -41,7 +37,6 @@ static void lbmD3Q27(bool console)
   const int obstacle_y = ny / 2; // y location of the cylinder
   const int obstacle_z = nz / 2; // z location of the cylinder
   const int obstacle_r = ny / 9; // radius of the cylinder
-  printf("obstacle_x: %i\n", obstacle_x);
 
   // Derived nondimensional parameters.
   float Re = 220.0; //L_p * U_p / nu_p;
@@ -51,7 +46,7 @@ static void lbmD3Q27(bool console)
   float dh = 1.0 / ((float)nx - 1.0);
   float dh_sq = dh * dh;
   // Lattice speed
-  float u_lb = 0.04; //dt / dh;
+  float u_lb = 1e-7; //dt / dh;
   // Lattice viscosity
   float nu_lb = u_lb * obstacle_r / Re; // dt / dh_sq / Re;
   // Relaxation time
@@ -97,14 +92,14 @@ static void lbmD3Q27(bool console)
   // Multiple relaxation parameters for MRT scheme
   float s0 = 1.0;
   float s1 = 1.0;
-  float sv = 1.2;
-  float sb = 0.6;
-  float s3 = 1.2;
-  float s3b = 0.6;
-  float s4 = 1.2;
-  float s4b = 1.2;
-  float s5 = 1.2;
-  float s6 = 1.2;
+  float sv = 1.1;
+  float sb = 0.8;
+  float s3 = 1.1;
+  float s3b = 0.8;
+  float s4 = 1.1;
+  float s4b = 1.1;
+  float s5 = 1.1;
+  float s6 = 1.1;
   float relax_params[27] = {
     s0,
     s1,
@@ -177,17 +172,16 @@ static void lbmD3Q27(bool console)
 
   // print("CI: ", CI);
 
-  array BOUND = constant(0, nx, ny, nz);
-
   // Flow around obstacle
-  // circle
-  BOUND(span,span,span) = moddims((af::pow(flat(x) - obstacle_x, 2) + af::pow(flat(y) - obstacle_y, 2) + af::pow(flat(z) - obstacle_z, 2)) <= pow(obstacle_r,2), nx, ny, nz);
-  BOUND(span, span, end) = 1; // top
-  BOUND(span, span, 0) = 1;   // bottom
-  BOUND(span, end, span) = 1; // front
-  BOUND(span, 0, span) = 1;   // back
+  // array BOUND = constant(0, nx, ny, nz);
+  // // circle
+  // BOUND(span,span,span) = moddims((af::pow(flat(x) - obstacle_x, 2) + af::pow(flat(y) - obstacle_y, 2) + af::pow(flat(z) - obstacle_z, 2)) <= pow(obstacle_r,2), nx, ny, nz);
+  // BOUND(span, span, end) = 1; // top
+  // BOUND(span, span, 0) = 1;   // bottom
+  // BOUND(span, end, span) = 1; // front
+  // BOUND(span, 0, span) = 1;   // back
 
-  // array BOUND = randu(nx, ny, nz) < 0.9;
+  array BOUND = randu(nx, ny, nz) < 0.8;
 
   // print("bound: ", BOUND);
 
@@ -212,6 +206,7 @@ static void lbmD3Q27(bool console)
   float avu = 1;
   float prevavu = 1;
   float numactivenodes = sum<float>(count(BOUND));
+  array uu;
 
   if (!console)
   {
@@ -220,12 +215,14 @@ static void lbmD3Q27(bool console)
   }
 
   unsigned iter = 0;
+  unsigned maxiter = 100;
   float m_f = max<float>(F);
 
   sync();
   timer::start();
 
-  while (!win->close()) //(iter < 10)
+  // while (iter < maxiter) 
+  while (!win->close())
   {
     /*
     * STREAMING
@@ -304,7 +301,7 @@ static void lbmD3Q27(bool console)
     // // printf("UY dims = [%lld %lld %lld]\n", UY.dims(0), UY.dims(1), UY.dims(2));
     // UZ = (sum(F(span, span, span, idzleft), 3) - sum(F(span, span, span, idzright), 3)) / DENSITY;
     // // printf("UZ dims = [%lld %lld %lld]\n", UZ.dims(0), UZ.dims(1), UZ.dims(2));
-    // UX(0, seq(1,end-1)) = UX(0, seq(1,end-1)) + u_lb;
+    // // UX(0, seq(1,end-1)) = UX(0, seq(1,end-1)) + u_lb;
     UX(0, span, span) = u_lb;
     UX(ON) = 0;
     UY(ON) = 0;
@@ -384,19 +381,16 @@ static void lbmD3Q27(bool console)
     // println!("Post-collision F from moments (dims): {:?}", &updated_f.dims());
     // printf("Post-collision F from moments (dims) = [%lld %lld %lld]\n", F_postcol.dims(0), F_postcol.dims(1), F_postcol.dims(2));
     // Shuffle into 1D array representation of the domain
-    array F_postcol_1d = transpose(F_postcol);
+    array F_postcol_2D = transpose(F_postcol);
 
     F = moddims(F, total_nodes, 27);
-    F = F_postcol_1d;
+    F = F_postcol_2D;
 
     F(REFLECTED) = BOUNCEDBACK;
 
     prevavu = avu;
-    float sumux = sum<float>(sum(sum(UX)));
-    avu = sumux / numactivenodes;
-    // printf("avu: %2f", avu);
-    array uu = sqrt(moddims(v_sq, nx,ny,nz)) / avu;
-    // printf("uu dims = [%lld %lld %lld]\n", uu.dims(0), uu.dims(1), uu.dims(2));
+    avu = sum<float>(sum(sum(UX))) / numactivenodes;
+    uu = sqrt(moddims(v_sq, nx,ny,nz));// / avu;
 
     if (!console)
     {
@@ -418,6 +412,12 @@ static void lbmD3Q27(bool console)
       // eval(DENSITY);
     }
     iter++;
+
+    if (iter % 100 == 0) {
+      float time = timer::stop();
+      float mlups = (total_nodes * iter * 10e-6) / time;
+      printf("%u iterations completed, %fs elapsed (%f MLUPS).\n", iter, time, mlups);
+    }
   }
 
   sync();
@@ -428,6 +428,20 @@ static void lbmD3Q27(bool console)
   printf("Time: %fs\n", end);
   printf("MLUPS: %f\n", mlups);
   af::info();
+
+  while (!win->close())
+  {
+    std::stringstream titleUXY;
+    std::stringstream titleUXZ;
+    titleUXY << "Velocity field XY, iteration " << iter;
+    titleUXZ << "Velocity field XZ, iteration " << iter;
+    (*win)(0, 0).setColorMap(AF_COLORMAP_SPECTRUM);
+    (*win)(0, 0).image(transpose(uu(span, span, nz / 2)));
+    (*win)(0, 1).vectorField(flat(x), flat(y), flat(UX), flat(UY), std::move(titleUXY).str().c_str());
+    (*win)(1, 0).image(transpose(reorder(uu(span, ny / 2, span), 0, 2, 1)));
+    (*win)(1, 1).vectorField(flat(x), flat(z), flat(UX), flat(UZ), std::move(titleUXZ).str().c_str());
+    win->show();
+  }
 }
 
 int main(int argc, char *argv[])

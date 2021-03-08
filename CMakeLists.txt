@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 cmake_policy(VERSION 3.5)
 project(LBM-ArrayFire
-  VERSION 3.7.2
+  VERSION 0.1.1
   LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 98)

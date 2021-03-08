@@ -1,24 +1,39 @@
 cmake_minimum_required(VERSION 3.0)
 project(LBM-ArrayFire
-  VERSION 3.5.0
+  VERSION 0.1.1
   LANGUAGES CXX)
 
 find_package(ArrayFire)
 
 # LBM BGK
 if(ArrayFire_CPU_FOUND)
-  add_executable(lbm_bgk_cpu lbm_bgk.cpp)
-  target_link_libraries(lbm_bgk_cpu ArrayFire::afcpu)
+  add_executable(d2q9_bgk_channel_cpu d2q9_bgk_channel.cpp)
+  target_link_libraries(d2q9_bgk_channel_cpu ArrayFire::afcpu)
 endif()
 
 if(ArrayFire_CUDA_FOUND)
-  add_executable(lbm_bgk_cuda lbm_bgk.cpp)
-  target_link_libraries(lbm_bgk_cuda ArrayFire::afcuda)
+  add_executable(d2q9_bgk_channel_cuda d2q9_bgk_channel.cpp)
+  target_link_libraries(d2q9_bgk_channel_cuda ArrayFire::afcuda)
 endif()
 
 if(ArrayFire_OpenCL_FOUND)
-  add_executable(lbm_bgk_opencl lbm_bgk.cpp)
-  target_link_libraries(lbm_bgk_opencl ArrayFire::afopencl)
+  add_executable(d2q9_bgk_channel_opencl d2q9_bgk_channel.cpp)
+  target_link_libraries(d2q9_bgk_channel_opencl ArrayFire::afopencl)
+endif()
+
+if(ArrayFire_CPU_FOUND)
+  add_executable(d2q9_bgk_lid_cpu d2q9_bgk_lid.cpp)
+  target_link_libraries(d2q9_bgk_lid_cpu ArrayFire::afcpu)
+endif()
+
+if(ArrayFire_CUDA_FOUND)
+  add_executable(d2q9_bgk_lid_cuda d2q9_bgk_lid.cpp)
+  target_link_libraries(d2q9_bgk_lid_cuda ArrayFire::afcuda)
+endif()
+
+if(ArrayFire_OpenCL_FOUND)
+  add_executable(d2q9_bgk_lid_opencl d2q9_bgk_lid.cpp)
+  target_link_libraries(d2q9_bgk_lid_opencl ArrayFire::afopencl)
 endif()
 
 # LBM MRT
