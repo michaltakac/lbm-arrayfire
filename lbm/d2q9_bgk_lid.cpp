@@ -16,33 +16,31 @@ array normalize(array a, float max)
 }
 
 array stream(array f) {
-  f(span, span, 1) = shift(f, 1)(span, span, 1);
-  f(span, span, 2) = shift(f, 1, 1)(span, span, 2);
-  f(span, span, 3) = shift(f, 0, 1)(span, span, 3);
-  f(span, span, 4) = shift(f, -1, 1)(span, span, 4);
-  f(span, span, 5) = shift(f, -1)(span, span, 5);
-  f(span, span, 6) = shift(f, -1, -1)(span, span, 6);
-  f(span, span, 7) = shift(f, 0, -1)(span, span, 7);
-  f(span, span, 8) = shift(f, 1, -1)(span, span, 8);
+  f(span, span, 1) = shift(f, 1, 0)(span, span, 1);
+  f(span, span, 2) = shift(f, 0, 1)(span, span, 2);
+  f(span, span, 3) = shift(f,-1, 0)(span, span, 3);
+  f(span, span, 4) = shift(f, 0,-1)(span, span, 4);
+  f(span, span, 5) = shift(f, 1, 1)(span, span, 5);
+  f(span, span, 6) = shift(f,-1, 1)(span, span, 6);
+  f(span, span, 7) = shift(f,-1,-1)(span, span, 7);
+  f(span, span, 8) = shift(f, 1,-1)(span, span, 8);
   return f;
 }
 
 static void lbm(bool console)
 {
   // Grid length, number and spacing
-  const unsigned nx = 128;
-  const unsigned ny = 128;
+  const unsigned nx = 512;
+  const unsigned ny = 512;
 
   const unsigned total_nodes = nx * ny;
 
   // Physical parameters.
   const float ux_lid  = 0.05; // horizontal lid velocity
-  const float uy_lid = 0;    // vertical lid velocity
+  const float uy_lid = 0;     // vertical lid velocity
   const float rho0 = 1.0;
-
-  float Re = 100.0; // Reynolds number
-
-  // Discrete parameters
+  // Reynolds number
+  float Re = 100.0;
   // Kinematic viscosity
   float nu = ux_lid * nx / Re;
   // Relaxation time
@@ -64,26 +62,28 @@ static void lbm(bool console)
 
   array x = tile(range(nx), 1, ny);
   array y = tile(range(dim4(1, ny), 1), nx, 1);
-  array coords = join(1, flat(x), flat(y));
   seq lid = seq(1,nx-2);
 
-  //  c4  c3   c2
+  //  c6  c2   c5
   //    \  |  /
-  //  c5 -c0 - c1
+  //  c3 -c0 - c1
   //    /  |  \
-  //  c6  c7   c8
-
+  //  c7  c4   c8
   // Discrete velocities
-  float cx[9] = {0, 1, 1, 0,-1,-1,-1, 0, 1};
-  float cy[9] = {0, 0, 1, 1, 1, 0,-1,-1,-1};
+  float cx[9] = {0, 1, 0,-1, 0, 1,-1,-1, 1};
+  float cy[9] = {0, 0, 1, 0,-1, 1, 1,-1,-1};
   array ex(9, cx);
   array ey(9, cy);
 
-  array F = constant(rho0/9, nx, ny, 9);
+  // weights
+  float weights[9] = {t1,t2,t2,t2,t2,t3,t3,t3,t3};
+  array w(9, weights);
+
+  array F = constant(rho0, nx, ny, 9);
   array FEQ = F.copy();
 
   array CI = (range(dim4(1,8),1)+1) * total_nodes;
-  int nbindex[] = {4,5,6,7,0,1,2,3};
+  int nbindex[8] = {2,3,end,1,6,7,4,5};
   array nbidx(8, nbindex);
   array NBI = CI(span,nbidx);
 
@@ -102,19 +102,24 @@ static void lbm(bool console)
   array UX = constant(0, nx, ny);
   array UY = constant(0, nx, ny);
 
-  UX(ON) = 0;
-  UY(ON) = 0;
-  // DENSITY(ON) = 0;
+  // Indexes for directions, corner case
+  int dirs1[3] = {0, 1, 3};
+  int dirs2[3] = {2, 5, 6};
+  array idxdirs1(3, dirs1);
+  array idxdirs2(3, dirs2);
 
-  float avu = 1;
-  float prevavu = 1;
-  float numactivenodes = sum<float>(count(BOUND));
-  array uu;
+  // Start in equilibrium state
+  array u_sq = pow(UX, 2) + pow(UY, 2);
+  array eu = (flat(tile(transpose(ex), total_nodes)) * tile(flat(UX),9)) + (flat(tile(transpose(ey), total_nodes)) * tile(flat(UY),9));
+  F = flat(tile(transpose(w), total_nodes)) * tile(flat(DENSITY),9) * (1.0f + 3.0f*eu + 4.5f*(af::pow(eu,2)) - 1.5f*(tile(flat(u_sq),9)));
+  F = moddims(F,nx,ny,9);
+
+  array uu = constant(0,nx,ny);
 
   if (!console)
   {
     win = new Window(1536, 768, "LBM solver using ArrayFire");
-    win->grid(2, 2);
+    win->grid(1, 2);
   }
 
   unsigned iter = 0;
@@ -145,60 +150,42 @@ static void lbm(bool console)
     // MACROSCOPIC (DIRICHLET) BOUNDARY CONDITIONS
     UX(lid,end) = ux_lid; // lid x - velocity
     UY(lid,end) = uy_lid; // lid y - velocity
-    int dirs1[3] = {0, 1, 5};
-    int dirs2[3] = {3, 2, 4};
-    array idxdirs1(3, dirs1);
-    array idxdirs2(3, dirs2);
     DENSITY(lid,end) = 1 / (1+UY(lid,end)) * (sum(F(lid,end,idxdirs1), 2) + 2*sum(F(lid,end,idxdirs2), 2));
 
     // MICROSCOPIC BOUNDARY CONDITIONS: LID (Zou/He BC)
-    F(lid,end,7) = F(lid,end,3) - 2./3.*DENSITY(lid,end)*UY(lid,end);
-    F(lid,end,8) = F(lid,end,4) + 1./2.*(F(lid,end,5)-F(lid,end,1))+1./2.*DENSITY(lid,end)*UX(lid,end) - 1./6.*DENSITY(lid,end)*UY(lid,end);
-    F(lid,end,6) = F(lid,end,2) + 1./2.*(F(lid,end,1)-F(lid,end,5))-1./2.*DENSITY(lid,end)*UX(lid,end) - 1./6.*DENSITY(lid,end)*UY(lid,end);
+    F(lid,end,4) = F(lid,end,2) - 2./3.*DENSITY(lid,end)*UY(lid,end);
+    F(lid,end,8) = F(lid,end,6) + 1./2.*(F(lid,end,3)-F(lid,end,1))+1./2.*DENSITY(lid,end)*UX(lid,end) - 1./6.*DENSITY(lid,end)*UY(lid,end);
+    F(lid,end,7) = F(lid,end,5) + 1./2.*(F(lid,end,1)-F(lid,end,3))-1./2.*DENSITY(lid,end)*UX(lid,end) - 1./6.*DENSITY(lid,end)*UY(lid,end);
 
     UX(ON) = 0;
     UY(ON) = 0;
     DENSITY(ON) = 0;
 
-    array U_SQU = pow(UX, 2) + pow(UY, 2);
-    array U_C2 = UX + UY;
-    array U_C4 = -UX + UY;
-    array U_C6 = -U_C2;
-    array U_C8 = -U_C4;
-
-    // Calculate equilibrium distribution: stationary
-    FEQ(span, span, 0) = t1 * DENSITY * (1 - U_SQU / (2 * c_squ));
-    // nearest-neighbours
-    FEQ(span, span, 1) = t2 * DENSITY * (1 + UX / c_squ + 0.5 * pow((UX / c_squ), 2) - U_SQU / (2 * c_squ));
-    FEQ(span, span, 3) = t2 * DENSITY * (1 + UY / c_squ + 0.5 * pow((UY / c_squ), 2) - U_SQU / (2 * c_squ));
-    FEQ(span, span, 5) = t2 * DENSITY * (1 - UX / c_squ + 0.5 * pow((UX / c_squ), 2) - U_SQU / (2 * c_squ));
-    FEQ(span, span, 7) = t2 * DENSITY * (1 - UY / c_squ + 0.5 * pow((UY / c_squ), 2) - U_SQU / (2 * c_squ));
-    // next-nearest neighbours
-    FEQ(span, span, 2) = t3 * DENSITY * (1 + U_C2 / c_squ + 0.5 * pow((U_C2 / c_squ), 2) - U_SQU / (2 * c_squ));
-    FEQ(span, span, 4) = t3 * DENSITY * (1 + U_C4 / c_squ + 0.5 * pow((U_C4 / c_squ), 2) - U_SQU / (2 * c_squ));
-    FEQ(span, span, 6) = t3 * DENSITY * (1 + U_C6 / c_squ + 0.5 * pow((U_C6 / c_squ), 2) - U_SQU / (2 * c_squ));
-    FEQ(span, span, 8) = t3 * DENSITY * (1 + U_C8 / c_squ + 0.5 * pow((U_C8 / c_squ), 2) - U_SQU / (2 * c_squ));
+    // Collision
+    u_sq = pow(UX, 2) + pow(UY, 2);
+    eu = (flat(tile(transpose(ex), total_nodes)) * tile(flat(UX),9)) + (flat(tile(transpose(ey), total_nodes)) * tile(flat(UY),9));
+    FEQ = flat(tile(transpose(w), total_nodes)) * tile(flat(DENSITY),9) * (1.0f + 3.0f*eu + 4.5f*(af::pow(eu,2)) - 1.5f*(tile(flat(u_sq),9)));
+    FEQ = moddims(FEQ,nx,ny,9);
 
     F = omega * FEQ + (1 - omega) * F;
 
     F(REFLECTED) = BOUNCEDBACK;
 
-    prevavu = avu;
-    avu = sum<float>(sum(UX)) / numactivenodes;
-    uu = sqrt(U_SQU) / ux_lid;
-    uu(ON) = af::NaN;
-
     if (!console)
     {
       if (iter % 10 == 0) {
+        uu = sqrt(u_sq) / ux_lid;
+        uu(ON) = af::NaN;
+
+        seq filter = seq(0,nx-1,nx/30);
+
         const char *str = "Velocity field for iteration ";
         std::stringstream title;
         title << str << iter;
         (*win)(0, 0).setColorMap(AF_COLORMAP_SPECTRUM);
-        (*win)(0, 0).image(uu);
-        (*win)(0, 1).vectorField(flat(x), flat(y), flat(UX), flat(UY), std::move(title).str().c_str());
-        (*win)(0, 0).setColorMap(AF_COLORMAP_HEAT);
-        (*win)(1, 0).image(normalize(DENSITY, max<float>(DENSITY)));
+        (*win)(0, 0).image(flip(transpose(uu),0));
+        (*win)(0, 1).setAxesLimits(0.0f,(float)nx,0.0f,(float)ny,true);
+        (*win)(0, 1).vectorField(flat(x(filter,filter)), flat(y(filter,filter)), flat(UX(filter,filter)), flat(UY(filter,filter)), std::move(title).str().c_str());
         win->show();
       }
     }
