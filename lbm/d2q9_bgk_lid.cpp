@@ -8,13 +8,6 @@ using namespace af;
 
 Window *win;
 
-array normalize(array a, float max)
-{
-  float mx = max * 1.1;
-  float mn = -max * 1.1;
-  return (a - mn) / (mx - mn);
-}
-
 array stream(array f) {
   f(span, span, 1) = shift(f, 1, 0)(span, span, 1);
   f(span, span, 2) = shift(f, 0, 1)(span, span, 2);
@@ -30,8 +23,8 @@ array stream(array f) {
 static void lbm(bool console)
 {
   // Grid length, number and spacing
-  const unsigned nx = 512;
-  const unsigned ny = 512;
+  const unsigned nx = 128;
+  const unsigned ny = 128;
 
   const unsigned total_nodes = nx * ny;
 
