@@ -15,46 +15,46 @@ array normalize(array a)
 
 array stream(array f) {
     // nearest-neighbours
-    f(span, span, span, 1) = shift(f, 1, 0, 0)(span, span, span, 1);
-    f(span, span, span, 2) = shift(f, -1, 0, 0)(span, span, span, 2);
-    f(span, span, span, 3) = shift(f, 0, 1, 0)(span, span, span, 3);
-    f(span, span, span, 4) = shift(f, 0, -1, 0)(span, span, span, 4);
-    f(span, span, span, 5) = shift(f, 0, 0, 1)(span, span, span, 5);
-    f(span, span, span, 6) = shift(f, 0, 0, -1)(span, span, span, 6);
+    f(span, span, span,  1) = shift(f, 1, 0, 0)(span, span, span, 1);
+    f(span, span, span,  2) = shift(f,-1, 0, 0)(span, span, span, 2);
+    f(span, span, span,  3) = shift(f, 0, 1, 0)(span, span, span, 3);
+    f(span, span, span,  4) = shift(f, 0,-1, 0)(span, span, span, 4);
+    f(span, span, span,  5) = shift(f, 0, 0, 1)(span, span, span, 5);
+    f(span, span, span,  6) = shift(f, 0, 0,-1)(span, span, span, 6);
     // next-nearest neighbours
     // xy plane
-    f(span, span, span, 7) = shift(f, 1, 1, 0)(span, span, span, 7);
-    f(span, span, span, 8) = shift(f, -1, 1, 0)(span, span, span, 8);
-    f(span, span, span, 9) = shift(f, 1, -1, 0)(span, span, span, 9);
-    f(span, span, span, 10) = shift(f, -1, -1, 0)(span, span, span, 10);
+    f(span, span, span,  7) = shift(f, 1, 1, 0)(span, span, span, 7);
+    f(span, span, span,  8) = shift(f,-1, 1, 0)(span, span, span, 8);
+    f(span, span, span,  9) = shift(f, 1,-1, 0)(span, span, span, 9);
+    f(span, span, span, 10) = shift(f,-1,-1, 0)(span, span, span, 10);
     // xz plane
     f(span, span, span, 11) = shift(f, 1, 0, 1)(span, span, span, 11);
-    f(span, span, span, 12) = shift(f, -1, 0, 1)(span, span, span, 12);
-    f(span, span, span, 13) = shift(f, 1, 0, -1)(span, span, span, 13);
-    f(span, span, span, 14) = shift(f, -1, 0, -1)(span, span, span, 14);
+    f(span, span, span, 12) = shift(f,-1, 0, 1)(span, span, span, 12);
+    f(span, span, span, 13) = shift(f, 1, 0,-1)(span, span, span, 13);
+    f(span, span, span, 14) = shift(f,-1, 0,-1)(span, span, span, 14);
     // yz plane
     f(span, span, span, 15) = shift(f, 0, 1, 1)(span, span, span, 15);
-    f(span, span, span, 16) = shift(f, 0, -1, 1)(span, span, span, 16);
-    f(span, span, span, 17) = shift(f, 0, 1, -1)(span, span, span, 17);
-    f(span, span, span, 18) = shift(f, 0, -1, -1)(span, span, span, 18);
+    f(span, span, span, 16) = shift(f, 0,-1, 1)(span, span, span, 16);
+    f(span, span, span, 17) = shift(f, 0, 1,-1)(span, span, span, 17);
+    f(span, span, span, 18) = shift(f, 0,-1,-1)(span, span, span, 18);
     // next next-nearest neighbours
     f(span, span, span, 19) = shift(f, 1, 1, 1)(span, span, span, 19);
-    f(span, span, span, 20) = shift(f, -1, 1, 1)(span, span, span, 20);
-    f(span, span, span, 21) = shift(f, 1, -1, 1)(span, span, span, 21);
-    f(span, span, span, 22) = shift(f, -1, -1, 1)(span, span, span, 22);
-    f(span, span, span, 23) = shift(f, 1, 1, -1)(span, span, span, 23);
-    f(span, span, span, 24) = shift(f, -1, 1, -1)(span, span, span, 24);
-    f(span, span, span, 25) = shift(f, 1, -1, -1)(span, span, span, 25);
-    f(span, span, span, 26) = shift(f, -1, -1, -1)(span, span, span, 26);
+    f(span, span, span, 20) = shift(f,-1, 1, 1)(span, span, span, 20);
+    f(span, span, span, 21) = shift(f, 1,-1, 1)(span, span, span, 21);
+    f(span, span, span, 22) = shift(f,-1,-1, 1)(span, span, span, 22);
+    f(span, span, span, 23) = shift(f, 1, 1,-1)(span, span, span, 23);
+    f(span, span, span, 24) = shift(f,-1, 1,-1)(span, span, span, 24);
+    f(span, span, span, 25) = shift(f, 1,-1,-1)(span, span, span, 25);
+    f(span, span, span, 26) = shift(f,-1,-1,-1)(span, span, span, 26);
     return f;
 }
 
 static void lbm(bool console)
 {
   // Grid length, number and spacing
-  const unsigned nx = 100;
-  const unsigned ny = 60;
-  const unsigned nz = 60;
+  const unsigned nx = 200;
+  const unsigned ny = 50;
+  const unsigned nz = 50;
 
   const unsigned total_nodes = nx * ny * nz;
 
@@ -67,9 +67,9 @@ static void lbm(bool console)
   const int obstacle_r = ny / 10 + 1;      // radius of the cylinder
 
   // Reynolds number
-  float Re = 150.0;
+  float Re = 10.0;
   // Lattice speed
-  float u_max = 0.01;
+  float u_max = 0.000001;
   // Kinematic viscosity
   float nu = u_max * 2 * obstacle_r / Re; // dt / dh_sq / Re;
   // Relaxation time
@@ -83,10 +83,10 @@ static void lbm(bool console)
   printf("Relaxation time: %f\n", tau);
   printf("Relaxation parameter: %f\n", omega);
 
-  const float t1 = 8. / 27.;
-  const float t2 = 2. / 27.;
-  const float t3 = 1. / 54.;
-  const float t4 = 1. / 216.;
+  const float t1 = 4. / 9.;
+  const float t2 = 1. / 9.;
+  const float t3 = 1. / 36.;
+  const float t4 = 1. / 144.;
   const float c_squ = 1. / 3.;
 
   array x = tile(range(nx), 1, ny * nz);
@@ -110,21 +110,22 @@ static void lbm(bool console)
   array FEQ = F.copy();
 
   array CI = (range(dim4(1, 26), 1) + 1) * total_nodes;
-  int nbindex[] = {1, 2, 3, 4, 5, 6, 8, 9, 6, 7, 12, 13, 10, 11, 16, 17, 14, 15, 22, 23, 24, 25, 18, 19, 20, 21};
+                  // 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
+  int nbindex[26] = {1,0,3,2,5,4,9,8,7, 6,13,12,11,10,17,16,15,14,25,24,23,22,21,20,19,20};
   array nbidx(26, nbindex);
   array NBI = CI(span, nbidx);
 
   // Flow around obstacle
-  array BOUND = constant(0, nx, ny, nz);
-  // circle
-  BOUND(span,span,span) = moddims((af::pow(flat(x) - obstacle_x, 2) + af::pow(flat(y) - obstacle_y, 2) + af::pow(flat(z) - obstacle_z, 2)) <= pow(obstacle_r,2), nx, ny, nz);
-  BOUND(span, span, end) = 1; // top
-  BOUND(span, span, 0) = 1;   // bottom
-  BOUND(span, end, span) = 1; // front
-  BOUND(span, 0, span) = 1;   // back
+  // array BOUND = constant(0, nx, ny, nz);
+  // // circle
+  // BOUND(span,span,span) = moddims((af::pow(flat(x) - obstacle_x, 2) + af::pow(flat(y) - obstacle_y, 2) + af::pow(flat(z) - obstacle_z, 2)) <= pow(obstacle_r,2), nx, ny, nz);
+  // BOUND(span, span, end) = 1; // top
+  // BOUND(span, span, 0) = 1;   // bottom
+  // BOUND(span, end, span) = 1; // front
+  // BOUND(span, 0, span) = 1;   // back
 
   // Porous media
-  // array BOUND = randu(nx, ny, nz) < 0.8;
+  array BOUND = randu(nx, ny, nz) < 0.8;
 
   // matrix offset of each Occupied Node
   array ON = where(BOUND);
@@ -190,8 +191,8 @@ static void lbm(bool console)
     UY(ON) = 0;
     UZ(ON) = 0;
     DENSITY(ON) = 0;
-    DENSITY(0,span,span) = 1;
-    DENSITY(end,span,span) = 1;
+    // DENSITY(0,span,span) = 1;
+    // DENSITY(end,span,span) = 1;
 
     u_sq = af::pow(flat(UX), 2) + af::pow(flat(UY), 2) + af::pow(flat(UZ), 2);
     eu = (flat(tile(transpose(ex), total_nodes)) * tile(flat(UX),27)) + (flat(tile(transpose(ey), total_nodes)) * tile(flat(UY),27)) + (flat(tile(transpose(ez), total_nodes)) * tile(flat(UZ),27));
@@ -215,9 +216,9 @@ static void lbm(bool console)
       titleUXY << "Velocity field XY, iteration " << iter;
       titleUXZ << "Velocity field XZ, iteration " << iter;
       (*win)(0, 0).setColorMap(AF_COLORMAP_SPECTRUM);
-      (*win)(0, 0).image(reorder(normalize(uu), 2, 1, 0)(span, span, (int)ceil(nz / 2)));
-      // (*win)(0, 1).vectorField(flat(x(filterX,filterY,(int)ceil(nz / 2))), flat(y(filterX,filterY,(int)ceil(nz / 2))), flat(UX(filterX,filterY,(int)ceil(nz / 2))), flat(UY(filterX,filterY,(int)ceil(nz / 2))), std::move(titleUXY).str().c_str());
-      (*win)(1, 0).image(transpose(reorder(normalize(uu)(span, (int)ceil(ny / 2), span), 0, 2, 1)));
+      (*win)(0, 0).image(reorder(normalize(uu), 1, 0, 2)(span, span, (int)ceil(nz / 2)));
+      (*win)(0, 1).vectorField(flat(x(filterX,filterY)), flat(y(filterX,filterY)), flat(UX(filterX,filterY,(int)ceil(nz / 2))), flat(UY(filterX,filterY,(int)ceil(nz / 2))), std::move(titleUXY).str().c_str());
+      // (*win)(1, 0).image(transpose(reorder(normalize(uu)(span, (int)ceil(ny / 2), span), 0, 2, 1)));
       // (*win)(1, 1).vectorField(flat(x(filterX,filterY,filterZ)), flat(z(filterX,filterY,filterZ)), flat(UX(filterX,filterY,filterZ)), flat(UZ(filterX,filterY,filterZ)), std::move(titleUXZ).str().c_str());
       win->show();
     }
