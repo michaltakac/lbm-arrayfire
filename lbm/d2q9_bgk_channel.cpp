@@ -8,14 +8,13 @@ using namespace af;
 
 Window *win;
 
-array normalize(array a, float max)
+array normalize(array a)
 {
-  float mx = max * 1.1;
-  float mn = -max * 1.1;
-  return (a - mn) / (mx - mn);
+  return (a / (max<float>(abs(a)) * 1.1)) + 0.1;
 }
 
-array stream(array f) {
+array stream(array f)
+{
   f(span, span, 1) = shift(f, 1, 0)(span, span, 1);
   f(span, span, 2) = shift(f, 0, 1)(span, span, 2);
   f(span, span, 3) = shift(f,-1, 0)(span, span, 3);
@@ -30,8 +29,8 @@ array stream(array f) {
 static void lbm(bool console)
 {
   // Grid length, number and spacing
-  const unsigned nx = 1000;
-  const unsigned ny = 300;
+  const unsigned nx = 400;
+  const unsigned ny = 100;
 
   const unsigned total_nodes = nx * ny;
 
@@ -62,7 +61,6 @@ static void lbm(bool console)
   const float t1 = 4. / 9.;
   const float t2 = 1. / 9.;
   const float t3 = 1. / 36.;
-  const float c_squ = 1. / 3.;
 
   array x = tile(range(nx), 1, ny);
   array y = tile(range(dim4(1, ny), 1), nx, 1);
@@ -117,26 +115,24 @@ static void lbm(bool console)
   array eu = (flat(tile(transpose(ex), total_nodes)) * tile(flat(UX),9)) + (flat(tile(transpose(ey), total_nodes)) * tile(flat(UY),9));
   F = flat(tile(transpose(w), total_nodes)) * tile(flat(DENSITY),9) * (1.0f + 3.0f*eu + 4.5f*(af::pow(eu,2)) - 1.5f*(tile(flat(u_sq),9)));
   F = moddims(F,nx,ny,9);
-  
-  float avu = 1;
-  float prevavu = 1;
-  float numactivenodes = sum<float>(count(BOUND));
+
   array uu;
 
   if (!console)
   {
     win = new Window(1536, 768, "LBM solver using ArrayFire");
-    win->grid(2, 2);
+    win->grid(3, 1);
   }
 
   unsigned iter = 0;
   unsigned maxiter = 5000;
+  float MLUPS[5000];
 
   sync(0);
   timer::start();
 
-  // while (iter < maxiter)
-  while (!win->close())// (iter < maxiter) // (!win->close())
+  while (iter < maxiter)
+  // while (!win->close())// (iter < maxiter) // (!win->close())
   {
     F = stream(F);
 
@@ -171,44 +167,42 @@ static void lbm(bool console)
 
     F(REFLECTED) = BOUNCEDBACK;
 
-    if (!console)
-    {
-      if (iter % 10 == 0) {
-        prevavu = avu;
-        avu = sum<float>(sum(UX)) / numactivenodes;
-        uu = sqrt(u_sq);
-        uu(ON) = af::NaN;
+    // if (!console)
+    // {
+    //   if (iter % 10 == 0) {
+    //     uu = sqrt(u_sq);
+    //     uu(ON) = af::NaN;
 
-        seq filterX = seq(0,nx-1,ny/15);
-        seq filterY = seq(0,ny-1,ny/30);
+    //     seq filterX = seq(0,nx-1,nx/15);
+    //     seq filterY = seq(0,ny-1,ny/30);
 
-        const char *str = "Velocity field for iteration ";
-        std::stringstream title;
-        title << str << iter;
-        (*win)(0, 0).setColorMap(AF_COLORMAP_SPECTRUM);
-        (*win)(0, 0).image(transpose(uu));
-        (*win)(0, 1).setAxesLimits(0.0f,(float)nx,0.0f,(float)ny,true);
-        (*win)(0, 1).vectorField(flat(x(filterX,filterY)), flat(y(filterX,filterY)), flat(UX(filterX,filterY)), flat(UY(filterX,filterY)), std::move(title).str().c_str());
-        (*win)(1, 0).setColorMap(AF_COLORMAP_HEAT);
-        (*win)(1, 0).image(normalize(transpose(DENSITY), max<float>(DENSITY)));
-        win->show();
-      }
-    }
-    else
-    {
-      // eval(uu, F, FEQ);
-    }
+    //     const char *str = "Velocity field for iteration ";
+    //     std::stringstream title;
+    //     title << str << iter;
+    //     (*win)(0, 0).setColorMap(AF_COLORMAP_SPECTRUM);
+    //     (*win)(0, 0).image(transpose(normalize(uu)));
+    //     (*win)(1, 0).setAxesLimits(0.0f,(float)nx,0.0f,(float)ny,true);
+    //     (*win)(1, 0).vectorField(flat(x(filterX,filterY)), flat(y(filterX,filterY)), flat(UX(filterX,filterY)), flat(UY(filterX,filterY)), std::move(title).str().c_str());
+    //     // (*win)(2, 0).setColorMap(AF_COLORMAP_HEAT);
+    //     // (*win)(2, 0).image(normalize(transpose(DENSITY), max<float>(DENSITY)));
+    //     win->show();
+    //   }
+    // }
+    // else
+    // {
+    //   // eval(uu, F, FEQ);
+    // }
+
+    float time = timer::stop();
+    MLUPS[iter] = (total_nodes * iter * 10e-6) / time;
 
     if (iter % 100 == 0) {
-      float time = timer::stop();
-      float mlups = (total_nodes * iter * 10e-6) / time;
-      printf("%u iterations completed, %fs elapsed (%f MLUPS).\n", iter, time, mlups);
+      printf("%u iterations completed, %fs elapsed (%f MLUPS).\n", iter, time, MLUPS[iter]);
     }
 
+    sync(0);
     iter++;
   }
-
-  sync(0);
 
   float end = timer::stop();
   float mlups = (total_nodes * iter * 10e-6) / end;
@@ -217,14 +211,30 @@ static void lbm(bool console)
   printf("MLUPS: %f\n", mlups);
   af::info();
 
-  while (!win->close())
-  {
-    (*win)(0, 0).setColorMap(AF_COLORMAP_SPECTRUM);
-    (*win)(0, 0).image(transpose(uu));
-    (*win)(0, 1).vectorField(flat(x), flat(y), flat(UX), flat(UY), "Velocity field");
-    (*win)(1, 0).image(transpose(DENSITY));
-    win->show();
-  }
+  // array mlups_y(maxiter, MLUPS);
+  // array mlups_x = range(maxiter);
+
+  // while (!win->close())
+  // {
+  //   uu = sqrt(u_sq);
+  //   uu(ON) = af::NaN;
+
+  //   seq filterX = seq(0,nx-1,ny/10);
+  //   seq filterY = seq(0,ny-1,ny/20);
+
+  //   const char *str = "Velocity field for iteration ";
+  //   std::stringstream title;
+  //   title << str << iter;
+  //   (*win)(0, 0).setColorMap(AF_COLORMAP_SPECTRUM);
+  //   (*win)(0, 0).image(transpose(normalize(uu)));
+  //   (*win)(1, 0).setAxesLimits(0.0f,(float)nx,0.0f,(float)ny,true);
+  //   (*win)(1, 0).vectorField(flat(x(filterX,filterY)), flat(y(filterX,filterY)), flat(UX(filterX,filterY)), flat(UY(filterX,filterY)), std::move(title).str().c_str());
+  //   (*win)(2, 0).setAxesLabelFormat("%.1f","%.1f");
+  //   (*win)(2, 0).setAxesTitles("N of Iterations", "MLUPS");
+  //   (*win)(2, 0).setAxesLimits(mlups_x, mlups_y);
+  //   (*win)(2, 0).plot(mlups_x, mlups_y, "MLUPS");
+  //   win->show();
+  // }
 }
 
 int main(int argc, char *argv[])

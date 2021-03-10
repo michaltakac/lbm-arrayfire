@@ -8,11 +8,9 @@ using namespace af;
 
 Window *win;
 
-array normalize(array a, float max)
+array normalize(array a)
 {
-  float mx = max * 1.1;
-  float mn = -max * 1.1;
-  return (a - mn) / (mx - mn);
+  return (a / (max<float>(abs(a)) * 1.1)) + 0.1;
 }
 
 array stream(array f) {
@@ -30,8 +28,8 @@ array stream(array f) {
 static void lbm(bool console)
 {
   // Grid length, number and spacing
-  const unsigned nx = 512;
-  const unsigned ny = 512;
+  const unsigned nx = 256;
+  const unsigned ny = 256;
 
   const unsigned total_nodes = nx * ny;
 
@@ -58,7 +56,6 @@ static void lbm(bool console)
   const float t1 = 4. / 9.;
   const float t2 = 1. / 9.;
   const float t3 = 1. / 36.;
-  const float c_squ = 1. / 3.;
 
   array x = tile(range(nx), 1, ny);
   array y = tile(range(dim4(1, ny), 1), nx, 1);
@@ -123,13 +120,13 @@ static void lbm(bool console)
   }
 
   unsigned iter = 0;
-  unsigned maxiter = 5000;
+  unsigned maxiter = 15000;
 
   sync();
   timer::start();
 
-  // while (iter < maxiter)
-  while (!win->close())// (iter < maxiter) // (!win->close())
+  while (iter < maxiter)
+  // while (!win->close())// (iter < maxiter) // (!win->close())
   {
     F = stream(F);
 
@@ -171,28 +168,28 @@ static void lbm(bool console)
 
     F(REFLECTED) = BOUNCEDBACK;
 
-    if (!console)
-    {
-      if (iter % 10 == 0) {
-        uu = sqrt(u_sq) / ux_lid;
-        uu(ON) = af::NaN;
+    // if (!console)
+    // {
+    //   if (iter % 10 == 0) {
+    //     uu = sqrt(u_sq) / ux_lid;
+    //     uu(ON) = af::NaN;
 
-        seq filter = seq(0,nx-1,nx/30);
+    //     seq filter = seq(0,nx-1,nx/30);
 
-        const char *str = "Velocity field for iteration ";
-        std::stringstream title;
-        title << str << iter;
-        (*win)(0, 0).setColorMap(AF_COLORMAP_SPECTRUM);
-        (*win)(0, 0).image(flip(transpose(uu),0));
-        (*win)(0, 1).setAxesLimits(0.0f,(float)nx,0.0f,(float)ny,true);
-        (*win)(0, 1).vectorField(flat(x(filter,filter)), flat(y(filter,filter)), flat(UX(filter,filter)), flat(UY(filter,filter)), std::move(title).str().c_str());
-        win->show();
-      }
-    }
-    else
-    {
-      // eval(uu, F, FEQ);
-    }
+    //     const char *str = "Velocity field for iteration ";
+    //     std::stringstream title;
+    //     title << str << iter;
+    //     (*win)(0, 0).setColorMap(AF_COLORMAP_SPECTRUM);
+    //     (*win)(0, 0).image(flip(transpose(normalize(uu)),0));
+    //     (*win)(0, 1).setAxesLimits(0.0f,(float)nx,0.0f,(float)ny,true);
+    //     (*win)(0, 1).vectorField(flat(x(filter,filter)), flat(y(filter,filter)), flat(UX(filter,filter)), flat(UY(filter,filter)), std::move(title).str().c_str());
+    //     win->show();
+    //   }
+    // }
+    // else
+    // {
+    //   // eval(uu, F, FEQ);
+    // }
 
     if (iter % 100 == 0) {
       float time = timer::stop();
@@ -214,10 +211,18 @@ static void lbm(bool console)
 
   while (!win->close())
   {
+    uu = sqrt(u_sq) / ux_lid;
+    uu(ON) = af::NaN;
+
+    seq filter = seq(0,nx-1,nx/30);
+
+    const char *str = "Velocity field for iteration ";
+    std::stringstream title;
+    title << str << iter;
     (*win)(0, 0).setColorMap(AF_COLORMAP_SPECTRUM);
-    (*win)(0, 0).image(transpose(uu));
-    (*win)(0, 1).vectorField(flat(x), flat(y), flat(UX), flat(UY), "Velocity field");
-    (*win)(1, 0).image(transpose(DENSITY));
+    (*win)(0, 0).image(flip(transpose(normalize(uu)),0));
+    (*win)(0, 1).setAxesLimits(0.0f,(float)nx,0.0f,(float)ny,true);
+    (*win)(0, 1).vectorField(flat(x(filter,filter)), flat(y(filter,filter)), flat(UX(filter,filter)), flat(UY(filter,filter)), std::move(title).str().c_str());
     win->show();
   }
 }
