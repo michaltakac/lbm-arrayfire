@@ -52,9 +52,9 @@ array stream(array f) {
 static void lbm(bool console)
 {
   // Grid length, number and spacing
-  const unsigned nx = 50;
-  const unsigned ny = 50;
-  const unsigned nz = 50;
+  const unsigned nx = 128;
+  const unsigned ny = 128;
+  const unsigned nz = 128;
 
   const unsigned total_nodes = nx * ny * nz;
 
@@ -411,7 +411,7 @@ static void lbm(bool console)
       win->show();
     }
 
-    if (iter % 100 == 0) {
+    if (iter % 10 == 0) {
       float time = timer::stop();
       float mlups = (total_nodes * iter * 10e-6) / time;
       printf("%u iterations completed, %fs elapsed (%f MLUPS).\n", iter, time, mlups);
