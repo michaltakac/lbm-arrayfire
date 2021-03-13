@@ -1,0 +1,17 @@
+[package]
+name = "lbm-af"
+version = "0.1.0"
+description = "LBM solver using ArrayFire"
+authors = ["Michal Takac <takacmichal92@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+arrayfire = "3.8"
+
+[[example]]
+name = "channel" # examples/d2q9_bgk_channel.rs
+path = "examples/d2q9_bgk_channel.rs"
+
+[[example]]
+name = "lid" # examples/d2q9_bgk_lid.rs
+path = "examples/d2q9_bgk_lid.rs"
