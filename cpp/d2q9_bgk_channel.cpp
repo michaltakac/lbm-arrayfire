@@ -26,7 +26,7 @@ array stream(array f)
   return f;
 }
 
-static void lbm(bool console)
+static void lbm()
 {
   // Grid length, number and spacing
   const unsigned nx = 400;
@@ -46,7 +46,7 @@ static void lbm(bool console)
   // Lattice speed
   float u_max = 0.1;
   // Kinematic viscosity
-  float nu = u_max * 2 * obstacle_r / Re; // dt / dh_sq / Re;
+  float nu = u_max * 2 * obstacle_r / Re;
   // Relaxation time
   float tau = 3 * nu + 0.5;
   // Relaxation parameter
@@ -84,7 +84,6 @@ static void lbm(bool console)
   array FEQ = F.copy();
 
   array CI = (range(dim4(1,8),1)+1) * total_nodes;
-                 // 1 2 3 4 5 6 7 8
   int nbindex[8] = {2,3,0,1,6,7,4,5};
   array nbidx(8, nbindex);
   array NBI = CI(span,nbidx);
@@ -119,11 +118,9 @@ static void lbm(bool console)
 
   array uu;
 
-  if (!console)
-  {
-    win = new Window(1536, 768, "LBM solver using ArrayFire");
-    win->grid(3, 1);
-  }
+  // Setup Window
+  win = new Window(1536, 768, "LBM solver using ArrayFire");
+  win->grid(3, 1);
 
   unsigned iter = 0;
   unsigned maxiter = 5000;
@@ -132,8 +129,8 @@ static void lbm(bool console)
   sync(0);
   timer::start();
 
-  while (iter < maxiter)
-  // while (!win->close())// (iter < maxiter) // (!win->close())
+  // while (iter < maxiter)
+  while (!win->close())
   {
     F = stream(F);
 
@@ -143,7 +140,6 @@ static void lbm(bool console)
     DENSITY = sum(F, 2);
 
     array F_2D = moddims(F, total_nodes, 9);
-    array F_t = transpose(F_2D);
 
     array fex = moddims(tile(transpose(ex), total_nodes) * F_2D,nx,ny,9);
     array fey = moddims(tile(transpose(ey), total_nodes) * F_2D,nx,ny,9);
@@ -168,31 +164,22 @@ static void lbm(bool console)
 
     F(REFLECTED) = BOUNCEDBACK;
 
-    // if (!console)
-    // {
-    //   if (iter % 10 == 0) {
-    //     uu = sqrt(u_sq);
-    //     uu(ON) = af::NaN;
+    if (iter % 10 == 0) {
+      uu = sqrt(u_sq);
+      uu(ON) = af::NaN;
 
-    //     seq filterX = seq(0,nx-1,nx/15);
-    //     seq filterY = seq(0,ny-1,ny/30);
+      seq filterX = seq(0,nx-1,nx/15);
+      seq filterY = seq(0,ny-1,ny/30);
 
-    //     const char *str = "Velocity field for iteration ";
-    //     std::stringstream title;
-    //     title << str << iter;
-    //     (*win)(0, 0).setColorMap(AF_COLORMAP_SPECTRUM);
-    //     (*win)(0, 0).image(transpose(normalize(uu)));
-    //     (*win)(1, 0).setAxesLimits(0.0f,(float)nx,0.0f,(float)ny,true);
-    //     (*win)(1, 0).vectorField(flat(x(filterX,filterY)), flat(y(filterX,filterY)), flat(UX(filterX,filterY)), flat(UY(filterX,filterY)), std::move(title).str().c_str());
-    //     // (*win)(2, 0).setColorMap(AF_COLORMAP_HEAT);
-    //     // (*win)(2, 0).image(normalize(transpose(DENSITY), max<float>(DENSITY)));
-    //     win->show();
-    //   }
-    // }
-    // else
-    // {
-    //   // eval(uu, F, FEQ);
-    // }
+      const char *str = "Velocity field for iteration ";
+      std::stringstream title;
+      title << str << iter;
+      (*win)(0, 0).setColorMap(AF_COLORMAP_SPECTRUM);
+      (*win)(0, 0).image(transpose(normalize(uu)));
+      (*win)(1, 0).setAxesLimits(0.0f,(float)nx,0.0f,(float)ny,true);
+      (*win)(1, 0).vectorField(flat(x(filterX,filterY)), flat(y(filterX,filterY)), flat(UX(filterX,filterY)), flat(UY(filterX,filterY)), std::move(title).str().c_str());
+      win->show();
+    }
 
     float time = timer::stop();
     MLUPS[iter] = (total_nodes * iter * 10e-6) / time;
@@ -241,13 +228,12 @@ static void lbm(bool console)
 int main(int argc, char *argv[])
 {
   int device = argc > 1 ? atoi(argv[1]) : 0;
-  bool console = argc > 2 ? argv[2][0] == '-' : false;
   try
   {
     af::setDevice(device);
     af::info();
     printf("LBM D2Q9 simulation\n");
-    lbm(console);
+    lbm();
   }
   catch (af::exception &e)
   {

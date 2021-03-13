@@ -21,5 +21,4 @@ if(WIN32)
   unset(CMAKE_RUNTIME_OUTPUT_DIRECTORY)
 endif()
 
-add_subdirectory(lbm)
-add_subdirectory(fun)
+add_subdirectory(cpp)
