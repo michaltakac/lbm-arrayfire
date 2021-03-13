@@ -84,6 +84,7 @@ static void lbm(bool console)
   array FEQ = F.copy();
 
   array CI = (range(dim4(1,8),1)+1) * total_nodes;
+                 // 1 2 3 4 5 6 7 8
   int nbindex[8] = {2,3,0,1,6,7,4,5};
   array nbidx(8, nbindex);
   array NBI = CI(span,nbidx);
