@@ -1,7 +1,7 @@
 Lattice-Boltzmann code leveraging ArrayFire
 =====
 
-## Building The Project
+## Building C++ code
 
 Once ArrayFire is installed on your machine, compile the project
 using `cmake` and `make`:
@@ -21,6 +21,18 @@ folder, the invocation of `cmake` above would be replaced with the following:
     cmake -DArrayFire_DIR=$HOME/local/share/ArrayFire/cmake ..
 
 Note to self: `cmake -DArrayFire_DIR=/opt/arrayfire/share/ArrayFire/cmake ..`
+
+## Building C++ code
+
+Run the examples by running
+
+    cd rust
+    cargo run --example channel
+
+or
+
+    cd rust
+    cargo run --example lid
 
 ### ArrayFire Support and Contact Info
 
