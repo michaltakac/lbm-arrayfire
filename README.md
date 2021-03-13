@@ -22,7 +22,7 @@ folder, the invocation of `cmake` above would be replaced with the following:
 
 Note to self: `cmake -DArrayFire_DIR=/opt/arrayfire/share/ArrayFire/cmake ..`
 
-## Building C++ code
+## Building Rust code
 
 Run the examples by running
 
