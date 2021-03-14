@@ -25,7 +25,7 @@ array stream(array f) {
   return f;
 }
 
-static void lbm(bool console)
+static void lbm()
 {
   // Grid length, number and spacing
   const unsigned nx = 256;
@@ -67,21 +67,17 @@ static void lbm(bool console)
   //    /  |  \
   //  c7  c4   c8
   // Discrete velocities
-  float cx[9] = {0, 1, 0,-1, 0, 1,-1,-1, 1};
-  float cy[9] = {0, 0, 1, 0,-1, 1, 1,-1,-1};
-  array ex(9, cx);
-  array ey(9, cy);
+  array ex = {0, 1, 0,-1, 0, 1,-1,-1, 1};
+  array ey = {0, 0, 1, 0,-1, 1, 1,-1,-1};
 
   // weights
-  float weights[9] = {t1,t2,t2,t2,t2,t3,t3,t3,t3};
-  array w(9, weights);
+  array w = {t1,t2,t2,t2,t2,t3,t3,t3,t3};
 
-  array F = constant(rho0, nx, ny, 9);
+  array F = constant(rho0/9, nx, ny, 9);
   array FEQ = F.copy();
 
   array CI = (range(dim4(1,8),1)+1) * total_nodes;
-  int nbindex[8] = {2,3,end,1,6,7,4,5};
-  array nbidx(8, nbindex);
+  array nbidx = {2,3,0,1,6,7,4,5};
   array NBI = CI(span,nbidx);
 
   // Open lid
@@ -100,10 +96,8 @@ static void lbm(bool console)
   array UY = constant(0, nx, ny);
 
   // Indexes for directions, corner case
-  int dirs1[3] = {0, 1, 3};
-  int dirs2[3] = {2, 5, 6};
-  array idxdirs1(3, dirs1);
-  array idxdirs2(3, dirs2);
+  array idxdirs1 = {0, 1, 3};
+  array idxdirs2 = {2, 5, 6};
 
   // Start in equilibrium state
   array u_sq = pow(UX, 2) + pow(UY, 2);
@@ -113,11 +107,9 @@ static void lbm(bool console)
 
   array uu = constant(0,nx,ny);
 
-  if (!console)
-  {
-    win = new Window(1536, 768, "LBM solver using ArrayFire");
-    win->grid(1, 2);
-  }
+  // Setup Window
+  win = new Window(1536, 768, "LBM solver using ArrayFire");
+  win->grid(1, 2);
 
   unsigned iter = 0;
   unsigned maxiter = 15000;
@@ -223,13 +215,12 @@ static void lbm(bool console)
 int main(int argc, char *argv[])
 {
   int device = argc > 1 ? atoi(argv[1]) : 0;
-  bool console = argc > 2 ? argv[2][0] == '-' : false;
   try
   {
     af::setDevice(device);
     af::info();
     printf("LBM D2Q9 simulation\n");
-    lbm(console);
+    lbm();
   }
   catch (af::exception &e)
   {

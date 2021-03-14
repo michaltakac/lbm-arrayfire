@@ -71,21 +71,17 @@ static void lbm()
   //    /  |  \
   //  c7  c4   c8
   // Discrete velocities
-  float cx[9] = {0, 1, 0,-1, 0, 1,-1,-1, 1};
-  float cy[9] = {0, 0, 1, 0,-1, 1, 1,-1,-1};
-  array ex(9, cx);
-  array ey(9, cy);
+  array ex = {0, 1, 0,-1, 0, 1,-1,-1, 1};
+  array ey = {0, 0, 1, 0,-1, 1, 1,-1,-1};
 
   // weights
-  float weights[9] = {t1,t2,t2,t2,t2,t3,t3,t3,t3};
-  array w(9, weights);
+  array w = {t1,t2,t2,t2,t2,t3,t3,t3,t3};
 
   array F = constant(rho0/9, nx, ny, 9);
   array FEQ = F.copy();
 
   array CI = (range(dim4(1,8),1)+1) * total_nodes;
-  int nbindex[8] = {2,3,0,1,6,7,4,5};
-  array nbidx(8, nbindex);
+  array nbidx = {2,3,0,1,6,7,4,5};
   array NBI = CI(span,nbidx);
 
   // Flow around obstacle
@@ -119,18 +115,17 @@ static void lbm()
   array uu;
 
   // Setup Window
-  win = new Window(1536, 768, "LBM solver using ArrayFire");
-  win->grid(3, 1);
+  win = new Window(1536, 1024, "LBM solver using ArrayFire");
+  win->grid(2, 1);
 
   unsigned iter = 0;
-  unsigned maxiter = 5000;
-  float MLUPS[5000];
+  unsigned maxiter = 10000;
+  float MLUPS[10000];
 
   sync(0);
   timer::start();
 
-  // while (iter < maxiter)
-  while (!win->close())
+  while (!win->close() && iter < maxiter)
   {
     F = stream(F);
 
