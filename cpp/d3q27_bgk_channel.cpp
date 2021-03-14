@@ -83,10 +83,10 @@ static void lbm(bool console)
   printf("Relaxation time: %f\n", tau);
   printf("Relaxation parameter: %f\n", omega);
 
-  const float t1 = 8. / 27.;
-  const float t2 = 2. / 27.;
-  const float t3 = 1. / 54.;
-  const float t4 = 1. / 216.;
+  const float t1 = 4. / 9.;
+  const float t2 = 1. / 9.;
+  const float t3 = 1. / 36.;
+  const float t4 = 1. / 144.;
   const float c_squ = 1. / 3.;
 
   array x = tile(range(nx), 1, ny * nz);
@@ -110,7 +110,8 @@ static void lbm(bool console)
   array FEQ = F.copy();
 
   array CI = (range(dim4(1, 26), 1) + 1) * total_nodes;
-  int nbindex[] = {1, 2, 3, 4, 5, 6, 8, 9, 6, 7, 12, 13, 10, 11, 16, 17, 14, 15, 22, 23, 24, 25, 18, 19, 20, 21};
+                  // 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
+  int nbindex[26] = {1,0,3,2,5,4,9,8,7, 6,13,12,11,10,17,16,15,14,25,24,23,22,21,20,19,20};
   array nbidx(26, nbindex);
   array NBI = CI(span, nbidx);
 

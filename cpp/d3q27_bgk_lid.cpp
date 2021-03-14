@@ -53,9 +53,9 @@ array stream(array f)
 static void lbm(bool console)
 {
   // Grid length, number and spacing
-  const unsigned nx = 50;
-  const unsigned ny = 50;
-  const unsigned nz = 50;
+  const unsigned nx = 128;
+  const unsigned ny = 128;
+  const unsigned nz = 128;
 
   const unsigned total_nodes = nx * ny * nz;
 
@@ -107,7 +107,8 @@ static void lbm(bool console)
   array FEQ = F.copy();
 
   array CI = (range(dim4(1, 26), 1) + 1) * total_nodes;
-  int nbindex[] = {1, 2, 3, 4, 5, 6, 8, 9, 6, 7, 12, 13, 10, 11, 16, 17, 14, 15, 22, 23, 24, 25, 18, 19, 20, 21};
+                  // 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
+  int nbindex[26] = {1,0,3,2,5,4,9,8,7, 6,13,12,11,10,17,16,15,14,25,24,23,22,21,20,19,20};
   array nbidx(26, nbindex);
   array NBI = CI(span, nbidx);
 
