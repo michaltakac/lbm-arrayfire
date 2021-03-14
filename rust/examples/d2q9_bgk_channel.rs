@@ -9,8 +9,8 @@ fn normalize(a: &Array<FloatNum>) -> Array<FloatNum> {
 
 fn lbm() {
     // Grid length, number and spacing
-    let nx: u64 = 400;
-    let ny: u64 = 100;
+    let nx: u64 = 700;
+    let ny: u64 = 300;
 
     let total_nodes = nx * ny;
 
@@ -108,8 +108,8 @@ fn lbm() {
     win.grid(3, 1);
 
     let mut iter: u64 = 0;
-    let maxiter: u64 = 5000;
-    let mut mlups: Vec<FloatNum> = Vec::with_capacity(5000);
+    let maxiter: u64 = 10000;
+    let mut mlups: Vec<FloatNum> = Vec::with_capacity(10000);
 
     sync(0);
     let timer = Instant::now();
@@ -195,6 +195,7 @@ fn lbm() {
 
 fn main() {
     set_device(0);
+    set_backend(Backend::OPENCL);
     info();
     println!("LBM D2Q9 simulation\n");
     lbm();

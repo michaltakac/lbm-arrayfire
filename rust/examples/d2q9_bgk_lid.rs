@@ -9,8 +9,8 @@ fn normalize(a: &Array<FloatNum>) -> Array<FloatNum> {
 
 fn lbm() {
     // Grid length, number and spacing
-    let nx: u64 = 128;
-    let ny: u64 = 128;
+    let nx: u64 = 256;
+    let ny: u64 = 256;
 
     let total_nodes = nx * ny;
 
@@ -194,6 +194,7 @@ fn lbm() {
 
 fn main() {
     set_device(0);
+    set_backend(Backend::OPENCL);
     info();
     println!("LBM D2Q9 simulation\n");
     lbm();
