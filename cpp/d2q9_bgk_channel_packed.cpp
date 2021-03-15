@@ -4,9 +4,10 @@
 #include <stdlib.h>
 #include <string.h>
 using namespace af;
+array mul(const array &a, const array &b) { return a * b; }
 int main(int argc, char *argv[]) {
   af::info();
-  const unsigned nx = 1000, ny = 300;
+  const unsigned nx = 700, ny = 300;
   const unsigned total_nodes = nx * ny;
   const float rho0 = 1.0;
   const int obstacle_x = nx / 5 + 1; // x location of the cylinder
@@ -24,11 +25,12 @@ int main(int argc, char *argv[]) {
   array ex(9, cx);
   array ey(9, cy);
   array w = {t1,t2,t2,t2,t2,t3,t3,t3,t3}; // weights
-  array F = constant(rho0/9, nx, ny, 9);
-  array FEQ = F.copy();
   array CI = (range(dim4(1,8),1)+1) * total_nodes;
   array nbidx = {2,3,0,1,6,7,4,5};
   array NBI = CI(span,nbidx);
+  array main_index = moddims(range(dim4(total_nodes*9)),nx,ny,9);
+  array nb_index = constant(0, main_index.dims());
+  for (int i=0;i<9;i++) { nb_index(span, span, i) = shift(main_index, cx[i], cy[i])(span, span, i);}
   array BOUND = constant(0,nx,ny);
   BOUND(span,span) = moddims((af::pow(flat(x) - obstacle_x, 2) + af::pow(flat(y) - obstacle_y, 2)) <= pow(obstacle_r,2), nx, ny);
   BOUND(span,0) = 1; //top
@@ -41,38 +43,35 @@ int main(int argc, char *argv[]) {
   array UY = constant(0, nx, ny);
   UX(ON) = 0;
   DENSITY(ON) = 0;
-  array u_sq = pow(UX, 2) + pow(UY, 2);
-  array eu = (flat(tile(transpose(ex), total_nodes)) * tile(flat(UX),9)) + (flat(tile(transpose(ey), total_nodes)) * tile(flat(UY),9));
-  F = flat(tile(transpose(w), total_nodes)) * tile(flat(DENSITY),9) * (1.0f + 3.0f*eu + 4.5f*(af::pow(eu,2)) - 1.5f*(tile(flat(u_sq),9)));
-  F = moddims(F,nx,ny,9);
+  array u_sq = flat(pow(UX, 2) + pow(UY, 2));
+  array eu = flat(batchFunc(transpose(ex), flat(UX), mul) + batchFunc(transpose(ey), flat(UY), mul));
+  array F = flat(batchFunc(transpose(w), flat(DENSITY), mul)) * (1.0f + 3.0f*eu + 4.5f*(af::pow(eu,2)) - 1.5f*(tile(u_sq,9)));
   Window *win = new Window(1536, 768, "LBM solver using ArrayFire"); win->grid(2, 1);
   unsigned iter = 0;
   while (!win->close()) {
-    for (int i=0;i<9;i++) { // Streaming
-      F(span, span, i) = shift(F, cx[i], cy[i])(span, span, i);
-    }
-    array BOUNCEDBACK = F(TO_REFLECT); // Densities bouncing back at next timestep
-    array F_2D = moddims(F, total_nodes, 9);
-    array F_t = transpose(F_2D);
-    array fex = moddims(tile(transpose(ex), total_nodes) * F_2D,nx,ny,9);
-    array fey = moddims(tile(transpose(ey), total_nodes) * F_2D,nx,ny,9);
-    DENSITY = sum(F, 2);
-    UX = (sum(fex, 2) / DENSITY);
-    UY = (sum(fey, 2) / DENSITY);
+    array F_streamed = F(nb_index);
+    array BOUNCEDBACK = F_streamed(TO_REFLECT); // Densities bouncing back at next timestep
+    array F_2D = moddims(F_streamed, total_nodes, 9);
+    array F_flat = flat(F_2D);
+    array rho = sum(F_2D, 1);
+    DENSITY = moddims(rho,nx,ny);
+    array fex = batchFunc(transpose(ex), F_2D, mul);
+    array fey = batchFunc(transpose(ey), F_2D, mul);
+    UX = moddims((sum(fex, 1) / rho),nx,ny);
+    UY = moddims((sum(fey, 1) / rho),nx,ny);
     UX(0,span) = u_max;
     UX(ON) = 0;
     UY(ON) = 0;
     DENSITY(ON) = 0;
     DENSITY(0,span) = 1;
     DENSITY(end,span) = 1;
-    u_sq = pow(UX, 2) + pow(UY, 2);
-    eu = (flat(tile(transpose(ex), total_nodes)) * tile(flat(UX),9)) + (flat(tile(transpose(ey), total_nodes)) * tile(flat(UY),9));
-    FEQ = flat(tile(transpose(w), total_nodes)) * tile(flat(DENSITY),9) * (1.0f + 3.0f*eu + 4.5f*(af::pow(eu,2)) - 1.5f*(tile(flat(u_sq),9)));
-    FEQ = moddims(FEQ,nx,ny,9);
-    F = omega * FEQ + (1 - omega) * F;
+    u_sq = flat(pow(UX, 2) + pow(UY, 2));
+    eu = flat(batchFunc(transpose(ex), flat(UX), mul) + batchFunc(transpose(ey), flat(UY), mul));
+    array FEQ = flat(batchFunc(transpose(w), flat(DENSITY), mul)) * (1.0f + 3.0f*eu + 4.5f*(af::pow(eu,2)) - 1.5f*(tile(u_sq,9)));
+    F = omega * FEQ + (1 - omega) * F_flat;
     F(REFLECTED) = BOUNCEDBACK;
     if (iter % 10 == 0) { // Visualization
-      array uu = sqrt(u_sq);
+      array uu = moddims(sqrt(u_sq),nx,ny);
       uu(ON) = af::NaN;
       (*win)(0, 0).setColorMap(AF_COLORMAP_SPECTRUM);
       (*win)(0, 0).image(transpose((uu / (max<float>(abs(uu)) * 1.1)) + 0.1));

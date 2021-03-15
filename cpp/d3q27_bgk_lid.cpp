@@ -10,6 +10,8 @@ using namespace af;
 
 Window *win;
 
+array mul(const array &a, const array &b) { return a * b; }
+
 array normalize(array a)
 {
   return (a / (max<float>(abs(a)) * 1.1)) + 0.1;
@@ -55,19 +57,19 @@ array stream(array f)
 static void lbm(bool console)
 {
   // Grid length, number and spacing
-  const unsigned nx = 80;
-  const unsigned ny = 80;
-  const unsigned nz = 80;
+  const unsigned nx = 64;
+  const unsigned ny = 64;
+  const unsigned nz = 64;
 
   const unsigned total_nodes = nx * ny * nz;
 
   // Physical parameters.
-  const float ux_lid  = 0.05; // horizontal lid velocity
+  const float ux_lid = 0.05; // horizontal lid velocity
   const float uy_lid = 0;
   const float uz_lid = 0;
   const float rho0 = 1.0;
   // Reynolds number
-  float Re = 300.0;
+  float Re = 100.0;
   // Kinematic viscosity
   float nu = ux_lid * 2 * nx / Re;
   // Relaxation time
@@ -100,13 +102,13 @@ static void lbm(bool console)
   // weights
   array w = {t1,t2,t2,t2,t2,t2,t2,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t4,t4,t4,t4,t4,t4,t4,t4};
 
-  array F = constant(rho0, nx, ny, nz, 27);
-  array FEQ = F.copy();
-
   array CI = (range(dim4(1, 26), 1) + 1) * total_nodes;
               // 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
   array nbidx = {1,0,3,2,5,4,9,8,7, 6,13,12,11,10,17,16,15,14,25,24,23,22,21,20,19,20};
   array NBI = CI(span, nbidx);
+
+  array main_index_4d = moddims(range(dim4(total_nodes*27)),nx,ny,nz,27);
+  array nb_index = flat(stream(main_index_4d));
 
   // Open lid
   array BOUND = constant(1, nx, ny, nz);
@@ -128,13 +130,18 @@ static void lbm(bool console)
   array idxdirs1 = {0, 1, 3};
   array idxdirs2 = {2, 5, 6};
 
+  array w_tiled = flat(tile(transpose(w), total_nodes));
+  array ex_tiled = flat(tile(transpose(ex), total_nodes));
+  array ey_tiled = flat(tile(transpose(ey), total_nodes));
+  array ez_tiled = flat(tile(transpose(ez), total_nodes));
+
   // Particle distribution function in initial equilibrium state
-  array u_sq = af::pow(flat(UX), 2) + af::pow(flat(UY), 2) + af::pow(flat(UZ), 2);
-  array eu = (flat(tile(transpose(ex), total_nodes)) * tile(flat(UX),27)) + (flat(tile(transpose(ey), total_nodes)) * tile(flat(UY),27)) + (flat(tile(transpose(ez), total_nodes)) * tile(flat(UZ),27));
-  F = flat(tile(transpose(w), total_nodes)) * tile(flat(DENSITY),27) * (1.0f + 3.0f*eu + 4.5f*(af::pow(eu,2)) - 1.5f*(tile(u_sq,27)));
-  F = moddims(F,nx,ny,nz,27);
+  array u_sq = flat(af::pow(UX, 2) + af::pow(UY, 2) + af::pow(UZ, 2));
+  array eu = flat(batchFunc(transpose(ex), flat(UX), mul) + batchFunc(transpose(ey), flat(UY), mul) + batchFunc(transpose(ez), flat(UZ), mul));
+  array F = flat(batchFunc(transpose(w), flat(DENSITY), mul)) * (1.0f + 3.0f*eu + 4.5f*(af::pow(eu,2)) - 1.5f*(tile(u_sq,27)));
 
   array uu = constant(0,nx,ny,nz);
+
 
   // Setup Window
   win = new Window(1500, 1500, "LBM solver using ArrayFire");
@@ -148,20 +155,20 @@ static void lbm(bool console)
 
   while (!win->close() && iter < maxiter)
   {
-    F = stream(F);
+    array F_streamed = F(nb_index);
 
-    array BOUNCEDBACK = F(TO_REFLECT); // Densities bouncing back at next timestep
+    array BOUNCEDBACK = F_streamed(TO_REFLECT); // Densities bouncing back at next timestep
 
-    array F_2D = moddims(F, total_nodes, 27);
-    array F_t = transpose(F_2D);
+    array F_2D = moddims(F_streamed, total_nodes, 27);
+    array F_flat = flat(F_2D);
 
     // Compute macroscopic variables
     array rho = sum(F_2D, 1);
     DENSITY = moddims(rho,nx,ny,nz);
 
-    array fex = tile(transpose(ex), total_nodes) * F_2D;
-    array fey = tile(transpose(ey), total_nodes) * F_2D;
-    array fez = tile(transpose(ez), total_nodes) * F_2D;
+    array fex = batchFunc(transpose(ex), F_2D, mul);
+    array fey = batchFunc(transpose(ey), F_2D, mul);
+    array fez = batchFunc(transpose(ez), F_2D, mul);
 
     UX = moddims((sum(fex, 1) / rho),nx,ny,nz);
     UY = moddims((sum(fey, 1) / rho),nx,ny,nz);
@@ -177,18 +184,17 @@ static void lbm(bool console)
     DENSITY(ON) = 0;
 
     // Collision
-    u_sq = af::pow(flat(UX), 2) + af::pow(flat(UY), 2) + af::pow(flat(UZ), 2);
-    eu = (flat(tile(transpose(ex), total_nodes)) * tile(flat(UX),27)) + (flat(tile(transpose(ey), total_nodes)) * tile(flat(UY),27)) + (flat(tile(transpose(ez), total_nodes)) * tile(flat(UZ),27));
-    FEQ = flat(tile(transpose(w), total_nodes)) * tile(flat(DENSITY),27) * (1.0f + 3.0f*eu + 4.5f*(af::pow(eu,2)) - 1.5f*(tile(u_sq,27)));
-    FEQ = moddims(FEQ,nx,ny,nz,27);
+    u_sq = flat(af::pow(UX, 2) + af::pow(UY, 2) + af::pow(UZ, 2));
+    eu = flat(batchFunc(transpose(ex), flat(UX), mul) + batchFunc(transpose(ey), flat(UY), mul) + batchFunc(transpose(ez), flat(UZ), mul));
+    array FEQ = flat(batchFunc(transpose(w), flat(DENSITY), mul)) * (1.0f + 3.0f*eu + 4.5f*(af::pow(eu,2)) - 1.5f*(tile(u_sq,27)));
 
-    F = omega * FEQ + (1 - omega) * F;
+    F = omega * FEQ + (1 - omega) * F_flat;
 
     F(REFLECTED) = BOUNCEDBACK;
 
    
     if (iter % 10 == 0) {
-      uu = sqrt(moddims(u_sq,nx,ny,nz));
+      uu = moddims(sqrt(u_sq),nx,ny,nz);
       uu(ON) = af::NaN;
 
       seq filter =  seq(0,nx-1,(int)ceil(nx/30));

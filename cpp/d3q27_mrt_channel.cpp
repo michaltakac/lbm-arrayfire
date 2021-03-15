@@ -54,7 +54,7 @@ array stream(array f) {
 static void lbm()
 {
   // Grid length, number and spacing
-  const unsigned nx = 160;
+  const unsigned nx = 300;
   const unsigned ny = 80;
   const unsigned nz = 80;
 
@@ -68,12 +68,12 @@ static void lbm()
   const int obstacle_x = nx / 4; // x location of the cylinder
   const int obstacle_y = ny / 2 + ny / 15; // y location of the cylinder
   const int obstacle_z = nz / 2; // z location of the cylinder
-  const int obstacle_r = ny / 9; // radius of the cylinder
+  const int obstacle_r = ny / 10 + 1; // radius of the cylinder
 
   // Reynolds number
   float Re = 150.0; // rho_l * obstacle_r * u_max / mi_l
   // Lattice speed
-  float u_max = 0.05;
+  float u_max = 0.1;
   // Kinematic viscosity
   float nu = u_max * 2 * obstacle_r / Re;
   // Relaxation time
@@ -96,18 +96,24 @@ static void lbm()
   array ey = {0, 0, 0, 1,-1, 0, 0, 1, 1,-1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1, 1,-1,-1, 1, 1,-1,-1};
   array ez = {0, 0, 0, 0, 0, 1,-1, 0, 0, 0, 0, 1, 1,-1,-1, 1, 1,-1,-1, 1, 1, 1, 1,-1,-1,-1,-1};
 
+  // weights
+  array w = {t1,t2,t2,t2,t2,t2,t2,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t4,t4,t4,t4,t4,t4,t4,t4};
+
   array CI = (range(dim4(1, 26), 1) + 1) * total_nodes;
-              // 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
-  array nbidx = {1,0,3,2,5,4,9,8,7, 6,13,12,11,10,17,16,15,14,25,24,23,22,21,20,19,20};
+              // 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 
+  array nbidx = {1,0,3,2,5,4,9,8,7, 6,13,12,11,10,17,16,15,14,25,24,23,22,21,20,19,18};
   array NBI = CI(span, nbidx);
 
+  array main_index = moddims(range(dim4(total_nodes*27)),nx,ny,nz,27);
+  array nb_index = flat(stream(main_index));
+
   // Multiple relaxation parameters for MRT scheme
-  float s0 = 1.3;
-  float s1 = 1.3;
+  float s0 = 1.0;
+  float s1 = 1.0;
   float sv = 1.0;
-  float sb = 0.55;
+  float sb = 0.5;
   float s3 = 1.2;
-  float s3b = 0.55;
+  float s3b = 0.5;
   float s4 = 1.2;
   float s4b = 1.2;
   float s5 = 1.2;
@@ -192,10 +198,10 @@ static void lbm()
 
   // Flow around obstacle
   array BOUND = constant(0, nx, ny, nz);
-  // pipe
-  BOUND(span,span,span) = moddims((pow(flat(y), 2) + pow(flat(z), 2)) >= pow(ny,2)-1, nx, ny, nz);
-  // spherical obstacle
-  BOUND(span,span,span) = moddims((pow(flat(x) - obstacle_x, 2) + pow(flat(y) - obstacle_y, 2) + pow(flat(z) - obstacle_z, 2)) <= pow(obstacle_r,2), nx, ny, nz);
+  // pipe and spherical obstacle
+  array pipe = moddims((pow(flat(y) - ny/2, 2) + pow(flat(z) - nz/2, 2)) >= pow(ny/2,2)-1, nx, ny, nz);
+  array circle = moddims((pow(flat(x) - obstacle_x, 2) + pow(flat(y) - obstacle_y, 2) + pow(flat(z) - obstacle_z, 2)) <= pow(obstacle_r,2), nx, ny, nz);
+  BOUND(span,span,span) = pipe || circle;
 
   // matrix offset of each Occupied Node
   array ON = where(BOUND);
@@ -219,7 +225,7 @@ static void lbm()
   DENSITY(end,span,span) = 1;
 
   // Particle distribution function in initial equilibrium state
-  array F = constant(rho0/27.f, 27, total_nodes);
+  array F = constant(rho0/27., 27, total_nodes);
   /*
    * MOMENTS
    */
@@ -289,22 +295,22 @@ static void lbm()
 
   unsigned iter = 0;
   unsigned maxiter = 15000;
+  
 
   sync(0);
   timer::start();
 
   while (!win->close() && iter < maxiter)
   {
-    F = moddims(F, nx, ny, nz, 27);
-    F = stream(F);
+    array F_streamed = F(nb_index);
 
-    array BOUNCEDBACK = F(TO_REFLECT); // Densities bouncing back at next timestep
+    array BOUNCEDBACK = F_streamed(TO_REFLECT); // Densities bouncing back at next timestep
 
-    array F_2D = moddims(F, total_nodes, 27);
+    array F_2D = moddims(F_streamed, total_nodes, 27);
 
     // Compute macroscopic variables
     array rho = sum(F_2D, 1);
-    DENSITY = moddims(rho,nx,ny,nz);
+    DENSITY = moddims(rho, nx, ny, nz);
 
     array fex = tile(transpose(ex), total_nodes) * F_2D;
     array fey = tile(transpose(ey), total_nodes) * F_2D;
@@ -322,7 +328,7 @@ static void lbm()
     DENSITY(0,span,span) = 1;
     DENSITY(end,span,span) = 1;
 
-    array F_t = transpose(moddims(F, total_nodes, 27));
+    array F_t = transpose(F_2D);
 
     /*
      * MOMENTS
@@ -344,9 +350,9 @@ static void lbm()
     v_z_sq = UZ_1d * UZ_1d;
     v_sq = v_x_sq + v_y_sq + v_z_sq;
 
-    /*
-     * EQUILIBRIUM MOMENTS
-     */
+    // /*
+    //  * EQUILIBRIUM MOMENTS
+    //  */
     meq(0, span) = DENSITY_1d;
     meq(1, span) = rho_vx;
     meq(2, span) = rho_vy;
@@ -375,6 +381,11 @@ static void lbm()
     meq(25, span) = rho_cs_4 * UZ_1d;
     meq(26, span) = v_sq + rho_cs_6;
 
+    // array u_sq = pow(flat(UX), 2) + pow(flat(UY), 2) + pow(flat(UZ), 2);
+    // array eu = (flat(tile(transpose(ex), total_nodes)) * tile(flat(UX),27)) + (flat(tile(transpose(ey), total_nodes)) * tile(flat(UY),27)) + (flat(tile(transpose(ez), total_nodes)) * tile(flat(UZ),27));
+    // array feq = flat(tile(transpose(w), total_nodes)) * tile(flat(DENSITY),27) * (1.0f + 3.0f*eu + 4.5f*(af::pow(eu,2)) - 1.5f*(tile(u_sq,27)));
+    // array meq = matmul(M, transpose(moddims(feq,total_nodes,27)));
+
      /*
       * COLLISION STEP
       */
@@ -400,8 +411,8 @@ static void lbm()
       (*win)(0, 0).setColorMap(AF_COLORMAP_SPECTRUM);
       (*win)(0, 0).image(transpose(normalize(uu))(span, span, (int)ceil(nz / 2)));
       (*win)(0, 1).vectorField(flat(x(filterX,filterY)), flat(y(filterX,filterY)), flat(UX(filterX,filterY,(int)ceil(nz / 2))), flat(UY(filterX,filterY,(int)ceil(nz / 2))), std::move(titleUXY).str().c_str());
-      (*win)(1, 0).image(reorder(normalize(uu)((int)ceil(nx / 4), span, span), 1, 2, 0));
-      (*win)(1, 1).vectorField(flat(y(filterY,filterZ)), flat(z(filterY,filterZ)), flat(reorder(UY((int)ceil(nx / 4),filterY,filterZ), 1, 2, 0)), flat(reorder(UZ((int)ceil(nx / 4),filterY,filterZ), 1, 2, 0)), std::move(titleUXZ).str().c_str());
+      // (*win)(1, 0).image(reorder(normalize(uu)((int)ceil(nx / 4), span, span), 1, 2, 0));
+      // (*win)(1, 1).vectorField(flat(y(filterY,filterZ)), flat(z(filterY,filterZ)), flat(reorder(UY((int)ceil(nx / 4),filterY,filterZ), 1, 2, 0)), flat(reorder(UZ((int)ceil(nx / 4),filterY,filterZ), 1, 2, 0)), std::move(titleUXZ).str().c_str());
       win->show();
     }
 
@@ -451,6 +462,7 @@ int main(int argc, char *argv[])
   catch (af::exception &e)
   {
     fprintf(stderr, "%s\n", e.what());
+    while (true) {}
     throw;
   }
 

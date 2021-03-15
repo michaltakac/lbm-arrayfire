@@ -8,6 +8,8 @@ using namespace af;
 
 Window *win;
 
+array mul(const array &a, const array &b) { return a * b; }
+
 array normalize(array a)
 {
   return (a / (max<float>(abs(a)) * 1.1)) + 0.1;
@@ -28,8 +30,8 @@ array stream(array f) {
 static void lbm()
 {
   // Grid length, number and spacing
-  const unsigned nx = 256;
-  const unsigned ny = 256;
+  const unsigned nx = 512;
+  const unsigned ny = 512;
 
   const unsigned total_nodes = nx * ny;
 
@@ -38,7 +40,7 @@ static void lbm()
   const float uy_lid = 0;     // vertical lid velocity
   const float rho0 = 1.0;
   // Reynolds number
-  float Re = 100.0;
+  float Re = 200.0;
   // Kinematic viscosity
   float nu = ux_lid * nx / Re;
   // Relaxation time
@@ -73,12 +75,12 @@ static void lbm()
   // weights
   array w = {t1,t2,t2,t2,t2,t3,t3,t3,t3};
 
-  array F = constant(rho0/9, nx, ny, 9);
-  array FEQ = F.copy();
-
   array CI = (range(dim4(1,8),1)+1) * total_nodes;
   array nbidx = {2,3,0,1,6,7,4,5};
   array NBI = CI(span,nbidx);
+
+  array main_index = moddims(range(dim4(total_nodes*9)),nx,ny,9);
+  array nb_index = flat(stream(main_index));
 
   // Open lid
   array BOUND = constant(1, nx, ny);
@@ -95,15 +97,10 @@ static void lbm()
   array UX = constant(0, nx, ny);
   array UY = constant(0, nx, ny);
 
-  // Indexes for directions, corner case
-  array idxdirs1 = {0, 1, 3};
-  array idxdirs2 = {2, 5, 6};
-
   // Start in equilibrium state
-  array u_sq = pow(UX, 2) + pow(UY, 2);
-  array eu = (flat(tile(transpose(ex), total_nodes)) * tile(flat(UX),9)) + (flat(tile(transpose(ey), total_nodes)) * tile(flat(UY),9));
-  F = flat(tile(transpose(w), total_nodes)) * tile(flat(DENSITY),9) * (1.0f + 3.0f*eu + 4.5f*(af::pow(eu,2)) - 1.5f*(tile(flat(u_sq),9)));
-  F = moddims(F,nx,ny,9);
+  array u_sq = flat(pow(UX, 2) + pow(UY, 2));
+  array eu = flat(batchFunc(transpose(ex), flat(UX), mul) + batchFunc(transpose(ey), flat(UY), mul));
+  array F = flat(batchFunc(transpose(w), flat(DENSITY), mul)) * (1.0f + 3.0f*eu + 4.5f*(af::pow(eu,2)) - 1.5f*(tile(u_sq,9)));
 
   array uu = constant(0,nx,ny);
 
@@ -117,51 +114,44 @@ static void lbm()
   sync();
   timer::start();
 
-  // while (iter < maxiter)
-  while (!win->close())
+  while (!win->close() && iter < maxiter)
   {
-    F = stream(F);
+    array F_streamed = F(nb_index);
 
-    array BOUNCEDBACK = F(TO_REFLECT); // Densities bouncing back at next timestep
+    array BOUNCEDBACK = F_streamed(TO_REFLECT); // Densities bouncing back at next timestep
+
+    array F_2D = moddims(F_streamed, total_nodes, 9);
+    array F_flat = flat(F_2D);
 
     // Compute macroscopic variables
-    DENSITY = sum(F, 2);
+    array rho = sum(F_2D, 1);
+    DENSITY = moddims(rho,nx,ny);
 
-    array F_2D = moddims(F, total_nodes, 9);
-    array F_t = transpose(F_2D);
+    array fex = batchFunc(transpose(ex), F_2D, mul);
+    array fey = batchFunc(transpose(ey), F_2D, mul);
 
-    array fex = moddims(tile(transpose(ex), total_nodes) * F_2D,nx,ny,9);
-    array fey = moddims(tile(transpose(ey), total_nodes) * F_2D,nx,ny,9);
-
-    UX = (sum(fex, 2) / DENSITY);
-    UY = (sum(fey, 2) / DENSITY);
+    UX = moddims((sum(fex, 1) / rho),nx,ny);
+    UY = moddims((sum(fey, 1) / rho),nx,ny);
 
     // MACROSCOPIC (DIRICHLET) BOUNDARY CONDITIONS
     UX(lid,end) = ux_lid; // lid x - velocity
     UY(lid,end) = uy_lid; // lid y - velocity
-    DENSITY(lid,end) = 1 / (1+UY(lid,end)) * (sum(F(lid,end,idxdirs1), 2) + 2*sum(F(lid,end,idxdirs2), 2));
-
-    // MICROSCOPIC BOUNDARY CONDITIONS: LID (Zou/He BC)
-    F(lid,end,4) = F(lid,end,2) - 2./3.*DENSITY(lid,end)*UY(lid,end);
-    F(lid,end,8) = F(lid,end,6) + 1./2.*(F(lid,end,3)-F(lid,end,1))+1./2.*DENSITY(lid,end)*UX(lid,end) - 1./6.*DENSITY(lid,end)*UY(lid,end);
-    F(lid,end,7) = F(lid,end,5) + 1./2.*(F(lid,end,1)-F(lid,end,3))-1./2.*DENSITY(lid,end)*UX(lid,end) - 1./6.*DENSITY(lid,end)*UY(lid,end);
 
     UX(ON) = 0;
     UY(ON) = 0;
     DENSITY(ON) = 0;
 
     // Collision
-    u_sq = pow(UX, 2) + pow(UY, 2);
-    eu = (flat(tile(transpose(ex), total_nodes)) * tile(flat(UX),9)) + (flat(tile(transpose(ey), total_nodes)) * tile(flat(UY),9));
-    FEQ = flat(tile(transpose(w), total_nodes)) * tile(flat(DENSITY),9) * (1.0f + 3.0f*eu + 4.5f*(af::pow(eu,2)) - 1.5f*(tile(flat(u_sq),9)));
-    FEQ = moddims(FEQ,nx,ny,9);
+    u_sq = flat(pow(UX, 2) + pow(UY, 2));
+    eu = flat(batchFunc(transpose(ex), flat(UX), mul) + batchFunc(transpose(ey), flat(UY), mul));
+    array FEQ = flat(batchFunc(transpose(w), flat(DENSITY), mul)) * (1.0f + 3.0f*eu + 4.5f*(af::pow(eu,2)) - 1.5f*(tile(u_sq,9)));
 
-    F = omega * FEQ + (1 - omega) * F;
+    F = omega * FEQ + (1 - omega) * F_flat;
 
     F(REFLECTED) = BOUNCEDBACK;
 
     if (iter % 10 == 0) {
-      uu = sqrt(u_sq) / ux_lid;
+      uu = moddims(sqrt(u_sq),nx,ny);
       uu(ON) = af::NaN;
 
       seq filter = seq(0,nx-1,nx/30);
