@@ -20,12 +20,12 @@ if(ArrayFire_CPU_FOUND)
   add_executable(d3q27_bgk_channel_cpu d3q27_bgk_channel.cpp)
   target_link_libraries(d3q27_bgk_channel_cpu ArrayFire::afcpu)
 
-  # add_executable(d3q27_bgk_lid_cpu d3q27_bgk_lid.cpp)
-  # target_link_libraries(d3q27_bgk_lid_cpu ArrayFire::afcpu)
+  add_executable(d3q27_bgk_lid_cpu d3q27_bgk_lid.cpp)
+  target_link_libraries(d3q27_bgk_lid_cpu ArrayFire::afcpu)
 
   # D3Q27 MRT
-  add_executable(lbm_mrt_cpu lbm_mrt.cpp)
-  target_link_libraries(lbm_mrt_cpu ArrayFire::afcpu)
+  add_executable(d3q27_mrt_channel_cpu d3q27_mrt_channel.cpp)
+  target_link_libraries(d3q27_mrt_channel_cpu ArrayFire::afcpu)
 endif()
 
 if(ArrayFire_CUDA_FOUND)
@@ -43,12 +43,12 @@ if(ArrayFire_CUDA_FOUND)
   add_executable(d3q27_bgk_channel_cuda d3q27_bgk_channel.cpp)
   target_link_libraries(d3q27_bgk_channel_cuda ArrayFire::afcuda)
 
-  # add_executable(d3q27_bgk_lid_cuda d3q27_bgk_lid.cpp)
-  # target_link_libraries(d3q27_bgk_lid_cuda ArrayFire::afcuda)
+  add_executable(d3q27_bgk_lid_cuda d3q27_bgk_lid.cpp)
+  target_link_libraries(d3q27_bgk_lid_cuda ArrayFire::afcuda)
 
   # D3Q27 MRT
-  add_executable(lbm_mrt_cuda lbm_mrt.cpp)
-  target_link_libraries(lbm_mrt_cuda ArrayFire::afcuda)
+  add_executable(d3q27_mrt_channel_cuda d3q27_mrt_channel.cpp)
+  target_link_libraries(d3q27_mrt_channel_cuda ArrayFire::afcuda)
 endif()
 
 if(ArrayFire_OpenCL_FOUND)
@@ -66,10 +66,10 @@ if(ArrayFire_OpenCL_FOUND)
   add_executable(d3q27_bgk_channel_opencl d3q27_bgk_channel.cpp)
   target_link_libraries(d3q27_bgk_channel_opencl ArrayFire::afopencl)
 
-  # add_executable(d3q27_bgk_lid_opencl d3q27_bgk_lid.cpp)
-  # target_link_libraries(d3q27_bgk_lid_opencl ArrayFire::afopencl)
+  add_executable(d3q27_bgk_lid_opencl d3q27_bgk_lid.cpp)
+  target_link_libraries(d3q27_bgk_lid_opencl ArrayFire::afopencl)
 
   # D3Q27 MRT
-  add_executable(lbm_mrt_opencl lbm_mrt.cpp)
-  target_link_libraries(lbm_mrt_opencl ArrayFire::afopencl)
+  add_executable(d3q27_mrt_channel_opencl d3q27_mrt_channel.cpp)
+  target_link_libraries(d3q27_mrt_channel_opencl ArrayFire::afopencl)
 endif()

@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+// WORK IN PROGRESS !!!
+
 using namespace af;
 
 Window *win;
@@ -53,9 +55,9 @@ array stream(array f)
 static void lbm(bool console)
 {
   // Grid length, number and spacing
-  const unsigned nx = 128;
-  const unsigned ny = 128;
-  const unsigned nz = 128;
+  const unsigned nx = 80;
+  const unsigned ny = 80;
+  const unsigned nz = 80;
 
   const unsigned total_nodes = nx * ny * nz;
 
@@ -65,9 +67,9 @@ static void lbm(bool console)
   const float uz_lid = 0;
   const float rho0 = 1.0;
   // Reynolds number
-  float Re = 100.0;
+  float Re = 300.0;
   // Kinematic viscosity
-  float nu = ux_lid * nx * ny / Re;
+  float nu = ux_lid * 2 * nx / Re;
   // Relaxation time
   float tau = 3 * nu + 0.5;
   // Relaxation parameter
@@ -91,25 +93,19 @@ static void lbm(bool console)
   seq lidy = seq(1,ny-2);
 
   // Discrete velocities
-  float cx[27] = {0, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1};
-  float cy[27] = {0, 0, 0, 1,-1, 0, 0, 1, 1,-1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1, 1,-1,-1, 1, 1,-1,-1};
-  float cz[27] = {0, 0, 0, 0, 0, 1,-1, 0, 0, 0, 0, 1, 1,-1,-1, 1, 1,-1,-1, 1, 1, 1, 1,-1,-1,-1,-1};
-
-  array ex(27, cx);
-  array ey(27, cy);
-  array ez(27, cz);
+  array ex = {0, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1};
+  array ey = {0, 0, 0, 1,-1, 0, 0, 1, 1,-1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1, 1,-1,-1, 1, 1,-1,-1};
+  array ez = {0, 0, 0, 0, 0, 1,-1, 0, 0, 0, 0, 1, 1,-1,-1, 1, 1,-1,-1, 1, 1, 1, 1,-1,-1,-1,-1};
 
   // weights
-  float weights[27] = {t1,t2,t2,t2,t2,t2,t2,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t4,t4,t4,t4,t4,t4,t4,t4};
-  array w(27, weights);
+  array w = {t1,t2,t2,t2,t2,t2,t2,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t4,t4,t4,t4,t4,t4,t4,t4};
 
   array F = constant(rho0, nx, ny, nz, 27);
   array FEQ = F.copy();
 
   array CI = (range(dim4(1, 26), 1) + 1) * total_nodes;
-                  // 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
-  int nbindex[26] = {1,0,3,2,5,4,9,8,7, 6,13,12,11,10,17,16,15,14,25,24,23,22,21,20,19,20};
-  array nbidx(26, nbindex);
+              // 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
+  array nbidx = {1,0,3,2,5,4,9,8,7, 6,13,12,11,10,17,16,15,14,25,24,23,22,21,20,19,20};
   array NBI = CI(span, nbidx);
 
   // Open lid
@@ -129,24 +125,20 @@ static void lbm(bool console)
   array UZ = constant(0, nx, ny, nz);
 
   // Indexes for directions, corner case
-  int dirs1[3] = {0, 1, 3};
-  int dirs2[3] = {2, 5, 6};
-  array idxdirs1(3, dirs1);
-  array idxdirs2(3, dirs2);
+  array idxdirs1 = {0, 1, 3};
+  array idxdirs2 = {2, 5, 6};
 
-  // Start in equilibrium state
-  array u_sq = pow(UX, 2) + pow(UY, 2) + pow(UZ, 2);
+  // Particle distribution function in initial equilibrium state
+  array u_sq = af::pow(flat(UX), 2) + af::pow(flat(UY), 2) + af::pow(flat(UZ), 2);
   array eu = (flat(tile(transpose(ex), total_nodes)) * tile(flat(UX),27)) + (flat(tile(transpose(ey), total_nodes)) * tile(flat(UY),27)) + (flat(tile(transpose(ez), total_nodes)) * tile(flat(UZ),27));
-  F = flat(tile(transpose(w), total_nodes)) * tile(flat(DENSITY),27) * (1.0f + 3.0f*eu + 4.5f*(af::pow(eu,2)) - 1.5f*(tile(flat(u_sq),27)));
+  F = flat(tile(transpose(w), total_nodes)) * tile(flat(DENSITY),27) * (1.0f + 3.0f*eu + 4.5f*(af::pow(eu,2)) - 1.5f*(tile(u_sq,27)));
   F = moddims(F,nx,ny,nz,27);
 
   array uu = constant(0,nx,ny,nz);
 
-  if (!console)
-  {
-    win = new Window(1536, 768, "LBM solver using ArrayFire");
-    win->grid(1, 2);
-  }
+  // Setup Window
+  win = new Window(1500, 1500, "LBM solver using ArrayFire");
+  win->grid(2, 2);
 
   unsigned iter = 0;
   unsigned maxiter = 15000;
@@ -154,71 +146,65 @@ static void lbm(bool console)
   sync();
   timer::start();
 
-  // while (iter < maxiter)
-  while (!win->close())// (iter < maxiter) // (!win->close())
+  while (!win->close() && iter < maxiter)
   {
     F = stream(F);
 
     array BOUNCEDBACK = F(TO_REFLECT); // Densities bouncing back at next timestep
 
-    // Compute macroscopic variables
-    DENSITY = sum(F, 3);
-
     array F_2D = moddims(F, total_nodes, 27);
     array F_t = transpose(F_2D);
 
-    array fex = moddims(tile(transpose(ex), total_nodes) * F_2D,nx,ny,nz,27);
-    array fey = moddims(tile(transpose(ey), total_nodes) * F_2D,nx,ny,nz,27);
-    array fey = moddims(tile(transpose(ey), total_nodes) * F_2D,nx,ny,nz,27);
+    // Compute macroscopic variables
+    array rho = sum(F_2D, 1);
+    DENSITY = moddims(rho,nx,ny,nz);
 
-    UX = (sum(fex, 2) / DENSITY);
-    UY = (sum(fey, 2) / DENSITY);
+    array fex = tile(transpose(ex), total_nodes) * F_2D;
+    array fey = tile(transpose(ey), total_nodes) * F_2D;
+    array fez = tile(transpose(ez), total_nodes) * F_2D;
+
+    UX = moddims((sum(fex, 1) / rho),nx,ny,nz);
+    UY = moddims((sum(fey, 1) / rho),nx,ny,nz);
+    UZ = moddims((sum(fez, 1) / rho),nx,ny,nz);
 
     // MACROSCOPIC (DIRICHLET) BOUNDARY CONDITIONS
-    UX(lid,end) = ux_lid; // lid x - velocity
-    UY(lid,end) = uy_lid; // lid y - velocity
-    DENSITY(lid,end) = 1 / (1+UY(lid,end)) * (sum(F(lid,end,idxdirs1), 2) + 2*sum(F(lid,end,idxdirs2), 2));
-
-    // MICROSCOPIC BOUNDARY CONDITIONS: LID (Zou/He BC)
-    F(lid,end,4) = F(lid,end,2) - 2./3.*DENSITY(lid,end)*UY(lid,end);
-    F(lid,end,8) = F(lid,end,6) + 1./2.*(F(lid,end,3)-F(lid,end,1))+1./2.*DENSITY(lid,end)*UX(lid,end) - 1./6.*DENSITY(lid,end)*UY(lid,end);
-    F(lid,end,7) = F(lid,end,5) + 1./2.*(F(lid,end,1)-F(lid,end,3))-1./2.*DENSITY(lid,end)*UX(lid,end) - 1./6.*DENSITY(lid,end)*UY(lid,end);
+    UX(lidx,lidy,end) = ux_lid; // lid x - velocity
+    UY(lidx,lidy,end) = uy_lid; // lid y - velocity
 
     UX(ON) = 0;
     UY(ON) = 0;
+    UZ(ON) = 0;
     DENSITY(ON) = 0;
 
     // Collision
-    u_sq = pow(UX, 2) + pow(UY, 2);
-    eu = (flat(tile(transpose(ex), total_nodes)) * tile(flat(UX),9)) + (flat(tile(transpose(ey), total_nodes)) * tile(flat(UY),9));
-    FEQ = flat(tile(transpose(w), total_nodes)) * tile(flat(DENSITY),9) * (1.0f + 3.0f*eu + 4.5f*(af::pow(eu,2)) - 1.5f*(tile(flat(u_sq),9)));
-    FEQ = moddims(FEQ,nx,ny,9);
+    u_sq = af::pow(flat(UX), 2) + af::pow(flat(UY), 2) + af::pow(flat(UZ), 2);
+    eu = (flat(tile(transpose(ex), total_nodes)) * tile(flat(UX),27)) + (flat(tile(transpose(ey), total_nodes)) * tile(flat(UY),27)) + (flat(tile(transpose(ez), total_nodes)) * tile(flat(UZ),27));
+    FEQ = flat(tile(transpose(w), total_nodes)) * tile(flat(DENSITY),27) * (1.0f + 3.0f*eu + 4.5f*(af::pow(eu,2)) - 1.5f*(tile(u_sq,27)));
+    FEQ = moddims(FEQ,nx,ny,nz,27);
 
     F = omega * FEQ + (1 - omega) * F;
 
     F(REFLECTED) = BOUNCEDBACK;
 
-    if (!console)
-    {
-      if (iter % 10 == 0) {
-        uu = sqrt(u_sq) / ux_lid;
-        uu(ON) = af::NaN;
+   
+    if (iter % 10 == 0) {
+      uu = sqrt(moddims(u_sq,nx,ny,nz));
+      uu(ON) = af::NaN;
 
-        seq filter = seq(0,nx-1,nx/30);
+      seq filter =  seq(0,nx-1,(int)ceil(nx/30));
 
-        const char *str = "Velocity field for iteration ";
-        std::stringstream title;
-        title << str << iter;
-        (*win)(0, 0).setColorMap(AF_COLORMAP_SPECTRUM);
-        (*win)(0, 0).image(flip(transpose(normalize(uu)),0));
-        (*win)(0, 1).setAxesLimits(0.0f,(float)nx,0.0f,(float)ny,true);
-        (*win)(0, 1).vectorField(flat(x(filter,filter)), flat(y(filter,filter)), flat(UX(filter,filter)), flat(UY(filter,filter)), std::move(title).str().c_str());
-        win->show();
-      }
-    }
-    else
-    {
-      // eval(uu, F, FEQ);
+      const char *str = "Velocity field for iteration ";
+      std::stringstream title;
+      title << str << iter;
+      (*win)(0, 0).setColorMap(AF_COLORMAP_SPECTRUM);
+      (*win)(0, 0).image(flip(transpose(reorder(normalize(uu), 1, 0, 2)(span, span, (int)ceil(nz / 2))), 0));
+      (*win)(0, 1).setAxesLimits(0.0f,(float)nx,0.0f,(float)ny,true);
+      (*win)(0, 1).vectorField(flat(x(filter,filter)), flat(y(filter,filter)), flat(UX(filter,filter,(int)ceil(nz / 2))), flat(UY(filter,filter,(int)ceil(nz / 2))), std::move(title).str().c_str());
+      (*win)(1, 0).setColorMap(AF_COLORMAP_SPECTRUM);
+      (*win)(1, 0).image(normalize(uu)(span, span, (int)ceil(nz / 2)));
+      (*win)(1, 1).setAxesLimits(0.0f,(float)nx,0.0f,(float)nz,true);
+      (*win)(1, 1).vectorField(flat(x(filter,filter)), flat(z(filter,filter)), flat(UX(filter,filter,(int)ceil(nz / 2))), flat(UZ(filter,filter,(int)ceil(nz / 2))), std::move(title).str().c_str());
+      win->show();
     }
 
     if (iter % 100 == 0) {
@@ -241,10 +227,10 @@ static void lbm(bool console)
 
   while (!win->close())
   {
-    uu = sqrt(u_sq) / ux_lid;
+    uu = sqrt(moddims(u_sq,nx,ny,nz));
     uu(ON) = af::NaN;
 
-    seq filter = seq(0,nx-1,nx/30);
+    seq filter = seq(0,nx-1,(int)ceil(nx/30));
 
     const char *str = "Velocity field for iteration ";
     std::stringstream title;
@@ -252,7 +238,7 @@ static void lbm(bool console)
     (*win)(0, 0).setColorMap(AF_COLORMAP_SPECTRUM);
     (*win)(0, 0).image(flip(transpose(normalize(uu)),0));
     (*win)(0, 1).setAxesLimits(0.0f,(float)nx,0.0f,(float)ny,true);
-    (*win)(0, 1).vectorField(flat(x(filter,filter)), flat(y(filter,filter)), flat(UX(filter,filter)), flat(UY(filter,filter)), std::move(title).str().c_str());
+    (*win)(0, 1).vectorField(flat(x(filter,filter)), flat(y(filter,filter)), flat(UX(filter,filter,(int)ceil(nz / 2))), flat(UY(filter,filter,(int)ceil(nz / 2))), std::move(title).str().c_str());
     win->show();
   }
 }

@@ -49,7 +49,7 @@ array stream(array f) {
     return f;
 }
 
-static void lbm(bool console)
+static void lbm()
 {
   // Grid length, number and spacing
   const unsigned nx = 100;
@@ -94,38 +94,28 @@ static void lbm(bool console)
   array z = tile(range(dim4(1, nz), 1), nx * ny);
 
   // Discrete velocities
-  float cx[27] = {0, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1};
-  float cy[27] = {0, 0, 0, 1,-1, 0, 0, 1, 1,-1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1, 1,-1,-1, 1, 1,-1,-1};
-  float cz[27] = {0, 0, 0, 0, 0, 1,-1, 0, 0, 0, 0, 1, 1,-1,-1, 1, 1,-1,-1, 1, 1, 1, 1,-1,-1,-1,-1};
-
-  array ex(27, cx);
-  array ey(27, cy);
-  array ez(27, cz);
+  array ex = {0, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1};
+  array ey = {0, 0, 0, 1,-1, 0, 0, 1, 1,-1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1, 1,-1,-1, 1, 1,-1,-1};
+  array ez = {0, 0, 0, 0, 0, 1,-1, 0, 0, 0, 0, 1, 1,-1,-1, 1, 1,-1,-1, 1, 1, 1, 1,-1,-1,-1,-1};
 
   // weights
-  float weights[27] = {t1,t2,t2,t2,t2,t2,t2,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t4,t4,t4,t4,t4,t4,t4,t4};
-  array w(27, weights);
+  array w = {t1,t2,t2,t2,t2,t2,t2,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t4,t4,t4,t4,t4,t4,t4,t4};
 
   array F = constant(rho0, nx, ny, nz, 27);
   array FEQ = F.copy();
 
   array CI = (range(dim4(1, 26), 1) + 1) * total_nodes;
-                  // 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
-  int nbindex[26] = {1,0,3,2,5,4,9,8,7, 6,13,12,11,10,17,16,15,14,25,24,23,22,21,20,19,20};
-  array nbidx(26, nbindex);
+              // 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
+  array nbidx = {1,0,3,2,5,4,9,8,7, 6,13,12,11,10,17,16,15,14,25,24,23,22,21,20,19,20};
   array NBI = CI(span, nbidx);
 
   // Flow around obstacle
   array BOUND = constant(0, nx, ny, nz);
-  // circle
-  BOUND(span,span,span) = moddims((af::pow(flat(x) - obstacle_x, 2) + af::pow(flat(y) - obstacle_y, 2) + af::pow(flat(z) - obstacle_z, 2)) <= pow(obstacle_r,2), nx, ny, nz);
-  BOUND(span, span, end) = 1; // top
-  BOUND(span, span, 0) = 1;   // bottom
-  BOUND(span, end, span) = 1; // front
-  BOUND(span, 0, span) = 1;   // back
+   // pipe
+  BOUND(span,span,span) = moddims((pow(flat(y), 2) + pow(flat(z), 2)) >= pow(ny,2)-1, nx, ny, nz);
+  // spherical obstacle
+  BOUND(span,span,span) = moddims((pow(flat(x) - obstacle_x, 2) + pow(flat(y) - obstacle_y, 2) + pow(flat(z) - obstacle_z, 2)) <= pow(obstacle_r,2), nx, ny, nz);
 
-  // Porous media
-  // array BOUND = randu(nx, ny, nz) < 0.8;
 
   // matrix offset of each Occupied Node
   array ON = where(BOUND);
@@ -152,20 +142,17 @@ static void lbm(bool console)
 
   array uu;
 
-  if (!console)
-  {
-    win = new Window(1536, 768, "LBM solver using ArrayFire");
-    win->grid(2, 2);
-  }
+  // Setup Window
+  win = new Window(1536, 768, "LBM solver using ArrayFire");
+  win->grid(2, 2);
 
   unsigned iter = 0;
-  unsigned maxiter = 1000;
+  unsigned maxiter = 10000;
 
-  sync(0);
+  sync();
   timer::start();
 
-  // while (iter < maxiter)
-  while (!win->close())
+  while (!win->close() && iter < maxiter)
   {
     F = stream(F);
 
@@ -204,22 +191,19 @@ static void lbm(bool console)
     F(REFLECTED) = BOUNCEDBACK;
 
     if (iter % 10 == 0) {
-      uu = sqrt(moddims(u_sq,nx,ny,nz));
-      // printf("uu dims = [%lld %lld %lld]\n", uu.dims(0), uu.dims(1), uu.dims(2));
-      uu(ON) = af::NaN;
-      seq filterX = seq(0,nx-1,nx/15);
-      seq filterY = seq(0,ny-1,ny/30);
-      seq filterZ = seq(0,nz-1,nz/30);
+      seq filterX = seq(0,nx-1,(int)ceil(nx/15));
+      seq filterY = seq(0,ny-1,(int)ceil(ny/30));
+      seq filterZ = seq(0,nz-1,(int)ceil(nz/30));
 
       std::stringstream titleUXY;
       std::stringstream titleUXZ;
       titleUXY << "Velocity field XY, iteration " << iter;
       titleUXZ << "Velocity field XZ, iteration " << iter;
       (*win)(0, 0).setColorMap(AF_COLORMAP_SPECTRUM);
-      (*win)(0, 0).image(reorder(normalize(uu), 2, 1, 0)(span, span, (int)ceil(nz / 2)));
-      // (*win)(0, 1).vectorField(flat(x(filterX,filterY,(int)ceil(nz / 2))), flat(y(filterX,filterY,(int)ceil(nz / 2))), flat(UX(filterX,filterY,(int)ceil(nz / 2))), flat(UY(filterX,filterY,(int)ceil(nz / 2))), std::move(titleUXY).str().c_str());
-      (*win)(1, 0).image(transpose(reorder(normalize(uu)(span, (int)ceil(ny / 2), span), 0, 2, 1)));
-      // (*win)(1, 1).vectorField(flat(x(filterX,filterY,filterZ)), flat(z(filterX,filterY,filterZ)), flat(UX(filterX,filterY,filterZ)), flat(UZ(filterX,filterY,filterZ)), std::move(titleUXZ).str().c_str());
+      (*win)(0, 0).image(transpose(normalize(uu))(span, span, (int)ceil(nz / 2)));
+      (*win)(0, 1).vectorField(flat(x(filterX,filterY)), flat(y(filterX,filterY)), flat(UX(filterX,filterY,(int)ceil(nz / 2))), flat(UY(filterX,filterY,(int)ceil(nz / 2))), std::move(titleUXY).str().c_str());
+      (*win)(1, 0).image(reorder(normalize(uu)((int)ceil(nx / 4), span, span), 1, 2, 0));
+      (*win)(1, 1).vectorField(flat(y(filterY,filterZ)), flat(z(filterY,filterZ)), flat(reorder(UY((int)ceil(nx / 4),filterY,filterZ), 1, 2, 0)), flat(reorder(UZ((int)ceil(nx / 4),filterY,filterZ), 1, 2, 0)), std::move(titleUXZ).str().c_str());
       win->show();
     }
     iter++;
@@ -258,13 +242,12 @@ static void lbm(bool console)
 int main(int argc, char *argv[])
 {
   int device = argc > 1 ? atoi(argv[1]) : 0;
-  bool console = argc > 2 ? argv[2][0] == '-' : false;
   try
   {
     af::setDevice(device);
     af::info();
     printf("LBM D3Q27 simulation\n");
-    lbm(console);
+    lbm();
   }
   catch (af::exception &e)
   {
