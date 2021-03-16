@@ -92,16 +92,21 @@ static void lbm()
   array z = tile(range(dim4(1, nz), 1), nx * ny);
 
   // Discrete velocities
-  array ex = {0, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1};
-  array ey = {0, 0, 0, 1,-1, 0, 0, 1, 1,-1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1, 1,-1,-1, 1, 1,-1,-1};
-  array ez = {0, 0, 0, 0, 0, 1,-1, 0, 0, 0, 0, 1, 1,-1,-1, 1, 1,-1,-1, 1, 1, 1, 1,-1,-1,-1,-1};
+  float cx[27] = {0, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1};
+  float cy[27] = {0, 0, 0, 1,-1, 0, 0, 1, 1,-1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1, 1,-1,-1, 1, 1,-1,-1};
+  float cz[27] = {0, 0, 0, 0, 0, 1,-1, 0, 0, 0, 0, 1, 1,-1,-1, 1, 1,-1,-1, 1, 1, 1, 1,-1,-1,-1,-1};
+  array ex(27, cx);
+  array ey(27, cy);
+  array ez(27, cz);
 
   // weights
-  array w = {t1,t2,t2,t2,t2,t2,t2,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t4,t4,t4,t4,t4,t4,t4,t4};
+  float weights[27] = {t1,t2,t2,t2,t2,t2,t2,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t4,t4,t4,t4,t4,t4,t4,t4};
+  array w(27, weights);
 
   array CI = (range(dim4(1, 26), 1) + 1) * total_nodes;
-              // 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 
-  array nbidx = {1,0,3,2,5,4,9,8,7, 6,13,12,11,10,17,16,15,14,25,24,23,22,21,20,19,18};
+                         // 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
+  float nb_index_arr[26] = {1,0,3,2,5,4,9,8,7, 6,13,12,11,10,17,16,15,14,25,24,23,22,21,20,19,18};
+  array nbidx(26, nb_index_arr);
   array NBI = CI(span, nbidx);
 
   array main_index = moddims(range(dim4(total_nodes*27)),nx,ny,nz,27);
@@ -118,7 +123,7 @@ static void lbm()
   float s4b = 1.2;
   float s5 = 1.2;
   float s6 = 1.2;
-  array relax_params = {
+  float relax_params_arr[27] = {
     s0,
     s1,
     s1,
@@ -147,6 +152,7 @@ static void lbm()
     s5,
     s6,
   };
+  array relax_params(27, relax_params_arr);
   array S = diag(relax_params, 0, false);
   // array S = diag(constant(omega,27), 0, false); // = BGK, or
   // array S = diag(constant(1.2,27), 0, false); // = SRT set to constant
@@ -295,7 +301,7 @@ static void lbm()
 
   unsigned iter = 0;
   unsigned maxiter = 15000;
-  
+
 
   sync(0);
   timer::start();

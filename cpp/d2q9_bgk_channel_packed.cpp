@@ -24,9 +24,11 @@ int main(int argc, char *argv[]) {
   float cy[9] = {0, 0, 1, 0,-1, 1, 1,-1,-1}; // discrete velocities in y-direction
   array ex(9, cx);
   array ey(9, cy);
-  array w = {t1,t2,t2,t2,t2,t3,t3,t3,t3}; // weights
+  float weights[9] = {t1,t2,t2,t2,t2,t3,t3,t3,t3};
+  array w(9, weights);
   array CI = (range(dim4(1,8),1)+1) * total_nodes;
-  array nbidx = {2,3,0,1,6,7,4,5};
+  float nb_index_arr[8] = {2,3,0,1,6,7,4,5};
+  array nbidx(8, nb_index_arr);
   array NBI = CI(span,nbidx);
   array main_index = moddims(range(dim4(total_nodes*9)),nx,ny,9);
   array nb_index = constant(0, main_index.dims());
