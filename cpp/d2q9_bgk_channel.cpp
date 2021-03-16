@@ -73,17 +73,17 @@ static void lbm()
   //    /  |  \
   //  c7  c4   c8
   // Discrete velocities
-  float cx[9] = {0, 1, 0,-1, 0, 1,-1,-1, 1};
-  float cy[9] = {0, 0, 1, 0,-1, 1, 1,-1,-1};
+  int cx[9] = {0, 1, 0,-1, 0, 1,-1,-1, 1};
+  int cy[9] = {0, 0, 1, 0,-1, 1, 1,-1,-1};
   array ex(9, cx);
-  array ey(9, cx);
+  array ey(9, cy);
 
   // weights
   float weights[9] = {t1,t2,t2,t2,t2,t3,t3,t3,t3};
   array w(9, weights);
 
   array CI = (range(dim4(1,8),1)+1) * total_nodes;
-  float nb_index_arr[8] = {2,3,0,1,6,7,4,5};
+  unsigned int nb_index_arr[8] = {2,3,0,1,6,7,4,5};
   array nbidx(8, nb_index_arr);
   array NBI = CI(span,nbidx);
 

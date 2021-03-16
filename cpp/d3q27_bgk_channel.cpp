@@ -54,7 +54,7 @@ array stream(array f) {
 static void lbm()
 {
   // Grid length, number and spacing
-  const unsigned nx = 100;
+  const unsigned nx = 200;
   const unsigned ny = 60;
   const unsigned nz = 60;
 
@@ -69,9 +69,9 @@ static void lbm()
   const int obstacle_r = ny / 10 + 1;      // radius of the cylinder
 
   // Reynolds number
-  float Re = 150.0;
+  float Re = 220.0;
   // Lattice speed
-  float u_max = 0.01;
+  float u_max = 0.1;
   // Kinematic viscosity
   float nu = u_max * 2 * obstacle_r / Re; // dt / dh_sq / Re;
   // Relaxation time
@@ -96,9 +96,9 @@ static void lbm()
   array z = tile(range(dim4(1, nz), 1), nx * ny);
 
   // Discrete velocities
-  float cx[27] = {0, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1};
-  float cy[27] = {0, 0, 0, 1,-1, 0, 0, 1, 1,-1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1, 1,-1,-1, 1, 1,-1,-1};
-  float cz[27] = {0, 0, 0, 0, 0, 1,-1, 0, 0, 0, 0, 1, 1,-1,-1, 1, 1,-1,-1, 1, 1, 1, 1,-1,-1,-1,-1};
+  int cx[27] = {0, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1};
+  int cy[27] = {0, 0, 0, 1,-1, 0, 0, 1, 1,-1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1, 1,-1,-1, 1, 1,-1,-1};
+  int cz[27] = {0, 0, 0, 0, 0, 1,-1, 0, 0, 0, 0, 1, 1,-1,-1, 1, 1,-1,-1, 1, 1, 1, 1,-1,-1,-1,-1};
   array ex(27, cx);
   array ey(27, cy);
   array ez(27, cz);
@@ -109,7 +109,7 @@ static void lbm()
 
   array CI = (range(dim4(1, 26), 1) + 1) * total_nodes;
                          // 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
-  float nb_index_arr[26] = {1,0,3,2,5,4,9,8,7, 6,13,12,11,10,17,16,15,14,25,24,23,22,21,20,19,18};
+  unsigned int nb_index_arr[26] = {1,0,3,2,5,4,9,8,7, 6,13,12,11,10,17,16,15,14,25,24,23,22,21,20,19,18};
   array nbidx(26, nb_index_arr);
   array NBI = CI(span, nbidx);
 
@@ -141,9 +141,9 @@ static void lbm()
   DENSITY(ON) = 0;
 
   // Particle distribution function in initial equilibrium state
-  array u_sq = flat(af::pow(UX, 2) + af::pow(UY, 2) + af::pow(UZ, 2));
+  array u_sq = flat(pow(UX, 2) + pow(UY, 2) + pow(UZ, 2));
   array eu = flat(batchFunc(transpose(ex), flat(UX), mul) + batchFunc(transpose(ey), flat(UY), mul) + batchFunc(transpose(ez), flat(UZ), mul));
-  array F = flat(batchFunc(transpose(w), flat(DENSITY), mul)) * (1.0f + 3.0f*eu + 4.5f*(af::pow(eu,2)) - 1.5f*(tile(u_sq,27)));
+  array F = flat(batchFunc(transpose(w), flat(DENSITY), mul)) * (1.0f + 3.0f*eu + 4.5f*(pow(eu,2)) - 1.5f*(tile(u_sq,27)));
 
   array uu;
 
@@ -187,9 +187,9 @@ static void lbm()
     DENSITY(end,span,span) = 1;
 
     // Collision
-    u_sq = flat(af::pow(UX, 2) + af::pow(UY, 2) + af::pow(UZ, 2));
+    u_sq = flat(pow(UX, 2) + pow(UY, 2) + pow(UZ, 2));
     eu = flat(batchFunc(transpose(ex), flat(UX), mul) + batchFunc(transpose(ey), flat(UY), mul) + batchFunc(transpose(ez), flat(UZ), mul));
-    array FEQ = flat(batchFunc(transpose(w), flat(DENSITY), mul)) * (1.0f + 3.0f*eu + 4.5f*(af::pow(eu,2)) - 1.5f*(tile(u_sq,27)));
+    array FEQ = flat(batchFunc(transpose(w), flat(DENSITY), mul)) * (1.0f + 3.0f*eu + 4.5f*(pow(eu,2)) - 1.5f*(tile(u_sq,27)));
 
     F = omega * FEQ + (1 - omega) * F_flat;
 
@@ -211,7 +211,7 @@ static void lbm()
       (*win)(0, 0).image(transpose(normalize(uu))(span, span, (int)ceil(nz / 2)));
       (*win)(0, 1).vectorField(flat(x(filterX,filterY)), flat(y(filterX,filterY)), flat(UX(filterX,filterY,(int)ceil(nz / 2))), flat(UY(filterX,filterY,(int)ceil(nz / 2))), std::move(titleUXY).str().c_str());
       (*win)(1, 0).image(reorder(normalize(uu)((int)ceil(nx / 4), span, span), 1, 2, 0));
-      (*win)(1, 1).vectorField(flat(y(filterY,filterZ)), flat(z(filterY,filterZ)), flat(reorder(UY((int)ceil(nx / 4),filterY,filterZ), 1, 2, 0)), flat(reorder(UZ((int)ceil(nx / 4),filterY,filterZ), 1, 2, 0)), std::move(titleUXZ).str().c_str());
+      // (*win)(1, 1).vectorField(flat(y(filterY,filterZ)), flat(z(filterY,filterZ)), flat(reorder(UY((int)ceil(nx / 4),filterY,filterZ), 1, 2, 0)), flat(reorder(UZ((int)ceil(nx / 4),filterY,filterZ), 1, 2, 0)), std::move(titleUXZ).str().c_str());
       win->show();
     }
     iter++;

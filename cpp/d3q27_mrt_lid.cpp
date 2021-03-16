@@ -54,32 +54,19 @@ array stream(array f) {
 static void lbm()
 {
   // Grid length, number and spacing
-  const unsigned nx = 320;
-  const unsigned ny = 80;
-  const unsigned nz = 80;
+  const unsigned nx = 100;
+  const unsigned ny = 100;
+  const unsigned nz = 100;
 
   const unsigned total_nodes = nx * ny * nz;
 
   const float dt = 1.0;
 
   // Physical parameters.
+  const float ux_lid = 0.1; // horizontal lid velocity
+  const float uy_lid = 0;
+  const float uz_lid = 0;
   const float rho0 = 1.0;
-
-  const int obstacle_x = nx / 4; // x location of the cylinder
-  const int obstacle_y = ny / 2 + ny / 15; // y location of the cylinder
-  const int obstacle_z = nz / 2; // z location of the cylinder
-  const int obstacle_r = ny / 10 + 1; // radius of the cylinder
-
-  // Reynolds number
-  float Re = 150.0; // rho_l * obstacle_r * u_max / mi_l
-  // Lattice speed
-  float u_max = 0.1;
-  // Kinematic viscosity
-  float nu = u_max * 2 * obstacle_r / Re;
-  // Relaxation time
-  float tau = 3 * nu + 0.5;
-  // Relaxation parameter
-  float omega = 1.0 / tau;
 
   const float t1 = 8. / 27.;
   const float t2 = 2. / 27.;
@@ -90,6 +77,8 @@ static void lbm()
   array x = tile(range(nx), 1, ny * nz);
   array y = tile(range(dim4(1, ny), 1), nx, nz);
   array z = tile(range(dim4(1, nz), 1), nx * ny);
+  seq lidx = seq(1,nx-2);
+  seq lidy = seq(1,ny-2);
 
   // Discrete velocities
   int cx[27] = {0, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1};
@@ -104,7 +93,7 @@ static void lbm()
   array w(27, weights);
 
   array CI = (range(dim4(1, 26), 1) + 1) * total_nodes;
-                         // 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
+                                // 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
   unsigned int nb_index_arr[26] = {1,0,3,2,5,4,9,8,7, 6,13,12,11,10,17,16,15,14,25,24,23,22,21,20,19,18};
   array nbidx(26, nb_index_arr);
   array NBI = CI(span, nbidx);
@@ -115,14 +104,14 @@ static void lbm()
   // Multiple relaxation parameters for MRT scheme
   float s0 = 1.3;
   float s1 = 1.3;
-  float sv = 1.0;
-  float sb = 0.55;
+  float sv = 1.1;
+  float sb = 0.9;
   float s3 = 1.2;
-  float s3b = 0.55;
+  float s3b = 0.9;
   float s4 = 1.2;
   float s4b = 1.2;
-  float s5 = 1.2;
-  float s6 = 1.2;
+  float s5 = 1.1;
+  float s6 = 1.1;
   float relax_params_arr[27] = {
     s0,
     s1,
@@ -158,16 +147,13 @@ static void lbm()
   // array S = diag(constant(1.2,27), 0, false); // = SRT set to constant
 
   // Kinetic viscosity
-  // float nu = (1.0f / sv - 0.5f) * c_squ * dt;
+  float nu = (1.0f / sv - 0.5f) * c_squ * dt;
   // Bulk viscosity
   float bv = (2.f/3.f) * (1.0f / sb - 0.5f) * c_squ * dt;
 
-  printf("Reynolds number: %f\n", Re);
-  printf("Lattice speed: %f\n", u_max);
+  printf("Lid speed: %f\n", ux_lid);
   printf("Lattice viscosity: %f\n", nu);
   printf("Bulk viscosity: %f\n", bv);
-  printf("Relaxation time: %f\n", tau);
-  printf("Relaxation parameter: %f\n", omega);
 
   // Transformation matrix
   array M = constant(0, 27, 27);
@@ -202,33 +188,21 @@ static void lbm()
   // IM = M^-1
   array IM = pinverse(M);
 
-  // Flow around obstacle
-  array BOUND = constant(0, nx, ny, nz);
-  // pipe and spherical obstacle
-  array pipe = moddims((pow(flat(y) - ny/2, 2) + pow(flat(z) - nz/2, 2)) >= pow(ny/2,2)-1, nx, ny, nz);
-  array circle = moddims((pow(flat(x) - obstacle_x, 2) + pow(flat(y) - obstacle_y, 2) + pow(flat(z) - obstacle_z, 2)) <= pow(obstacle_r,2), nx, ny, nz);
-  BOUND(span,span,span) = pipe || circle;
+  // Open lid
+  array BOUND = constant(1, nx, ny, nz);
+  BOUND(lidx,lidy,seq(1,end)) = 0; // all empty except top lid
 
   // matrix offset of each Occupied Node
   array ON = where(BOUND);
 
   // Bounceback indexes
-  array TO_REFLECT = flat(tile(ON, CI.elements())) + flat(tile(CI, ON.elements()));
-  array REFLECTED = flat(tile(ON, NBI.elements())) + flat(tile(NBI, ON.elements()));
+  array TO_REFLECT = flat(tile(ON,CI.elements())) + flat(tile(CI,ON.elements()));
+  array REFLECTED = flat(tile(ON,NBI.elements())) + flat(tile(NBI,ON.elements()));
 
   array DENSITY = constant(rho0, nx, ny, nz);
-  array UX = constant(u_max, nx, ny, nz);
+  array UX = constant(0, nx, ny, nz);
   array UY = constant(0, nx, ny, nz);
   array UZ = constant(0, nx, ny, nz);
-
-  UX(0,span,span) = u_max;
-  UX(ON) = 0;
-  UY(ON) = 0;
-  UZ(ON) = 0;
-  DENSITY(ON) = 0;
-
-  DENSITY(0,span,span) = 1;
-  DENSITY(end,span,span) = 1;
 
   // Particle distribution function in initial equilibrium state
   array F = constant(rho0/27., 27, total_nodes);
@@ -302,7 +276,6 @@ static void lbm()
   unsigned iter = 0;
   unsigned maxiter = 15000;
 
-
   sync(0);
   timer::start();
 
@@ -326,13 +299,14 @@ static void lbm()
     UY = moddims((sum(fey, 1) / rho),nx,ny,nz);
     UZ = moddims((sum(fez, 1) / rho),nx,ny,nz);
 
-    UX(0, span, span) = u_max;
+    // MACROSCOPIC (DIRICHLET) BOUNDARY CONDITIONS
+    UX(lidx,lidy,end) = ux_lid; // lid x - velocity
+    UY(lidx,lidy,end) = uy_lid; // lid y - velocity
+
     UX(ON) = 0;
     UY(ON) = 0;
     UZ(ON) = 0;
     DENSITY(ON) = 0;
-    DENSITY(0,span,span) = 1;
-    DENSITY(end,span,span) = 1;
 
     array F_t = transpose(F_2D);
 
@@ -387,11 +361,6 @@ static void lbm()
     meq(25, span) = rho_cs_4 * UZ_1d;
     meq(26, span) = v_sq + rho_cs_6;
 
-    // array u_sq = pow(flat(UX), 2) + pow(flat(UY), 2) + pow(flat(UZ), 2);
-    // array eu = (flat(tile(transpose(ex), total_nodes)) * tile(flat(UX),27)) + (flat(tile(transpose(ey), total_nodes)) * tile(flat(UY),27)) + (flat(tile(transpose(ez), total_nodes)) * tile(flat(UZ),27));
-    // array feq = flat(tile(transpose(w), total_nodes)) * tile(flat(DENSITY),27) * (1.0f + 3.0f*eu + 4.5f*(af::pow(eu,2)) - 1.5f*(tile(u_sq,27)));
-    // array meq = matmul(M, transpose(moddims(feq,total_nodes,27)));
-
      /*
       * COLLISION STEP
       */
@@ -403,22 +372,22 @@ static void lbm()
     F(REFLECTED) = BOUNCEDBACK;
 
     if (iter % 10 == 0) {
-      uu = sqrt(moddims(v_sq,nx,ny,nz));
+      uu = moddims(sqrt(v_sq),nx,ny,nz);
       uu(ON) = af::NaN;
 
-      seq filterX = seq(0,nx-1,(int)ceil(nx/15));
-      seq filterY = seq(0,ny-1,(int)ceil(ny/30));
-      seq filterZ = seq(0,nz-1,(int)ceil(nz/30));
+      seq filter =  seq(0,nx-1,(int)ceil(nx/30));
 
-      std::stringstream titleUXY;
-      std::stringstream titleUXZ;
-      titleUXY << "Velocity field XY, iteration " << iter;
-      titleUXZ << "Velocity field XZ, iteration " << iter;
+      const char *str = "Velocity field for iteration ";
+      std::stringstream title;
+      title << str << iter;
       (*win)(0, 0).setColorMap(AF_COLORMAP_SPECTRUM);
-      (*win)(0, 0).image(transpose(normalize(uu))(span, span, (int)ceil(nz / 2)));
-      (*win)(0, 1).vectorField(flat(x(filterX,filterY)), flat(y(filterX,filterY)), flat(UX(filterX,filterY,(int)ceil(nz / 2))), flat(UY(filterX,filterY,(int)ceil(nz / 2))), std::move(titleUXY).str().c_str());
-      (*win)(1, 0).image(reorder(normalize(uu)((int)ceil(nx / 4), span, span), 1, 2, 0));
-      // (*win)(1, 1).vectorField(flat(y(filterY,filterZ)), flat(z(filterY,filterZ)), flat(reorder(UY((int)ceil(nx / 4),filterY,filterZ), 1, 2, 0)), flat(reorder(UZ((int)ceil(nx / 4),filterY,filterZ), 1, 2, 0)), std::move(titleUXZ).str().c_str());
+      (*win)(0, 0).image(flip(transpose(reorder(normalize(uu), 1, 0, 2)(span, span, (int)ceil(nz / 2))), 0));
+      (*win)(0, 1).setAxesLimits(0.0f,(float)nx,0.0f,(float)ny,true);
+      (*win)(0, 1).vectorField(flat(x(filter,filter)), flat(y(filter,filter)), flat(UX(filter,filter,(int)ceil(nz / 2))), flat(UY(filter,filter,(int)ceil(nz / 2))), std::move(title).str().c_str());
+      (*win)(1, 0).setColorMap(AF_COLORMAP_SPECTRUM);
+      (*win)(1, 0).image(normalize(uu)(span, span, (int)ceil(nz / 2)));
+      (*win)(1, 1).setAxesLimits(0.0f,(float)nx,0.0f,(float)nz,true);
+      (*win)(1, 1).vectorField(flat(x(filter,filter)), flat(z(filter,filter)), flat(UX(filter,filter,(int)ceil(nz / 2))), flat(UZ(filter,filter,(int)ceil(nz / 2))), std::move(title).str().c_str());
       win->show();
     }
 

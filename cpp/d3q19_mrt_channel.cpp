@@ -6,7 +6,14 @@
 
 // WORK IN PROGRESS !!!
 
+// Suga et. al (2015)
+// https://www.sciencedirect.com/science/article/pii/S0898122115000346
+
 using namespace af;
+
+float cx[27] = {0, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1};
+float cy[27] = {0, 0, 0, 1,-1, 0, 0, 1, 1,-1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1, 1,-1,-1, 1, 1,-1,-1};
+float cz[27] = {0, 0, 0, 0, 0, 1,-1, 0, 0, 0, 0, 1, 1,-1,-1, 1, 1,-1,-1, 1, 1, 1, 1,-1,-1,-1,-1};
 
 Window *win;
 
@@ -16,39 +23,10 @@ array normalize(array a)
 }
 
 array stream(array f) {
-  // nearest-neighbours
-  f(span, span, span, 1) = shift(f, 1, 0, 0)(span, span, span, 1);
-  f(span, span, span, 2) = shift(f, -1, 0, 0)(span, span, span, 2);
-  f(span, span, span, 3) = shift(f, 0, 1, 0)(span, span, span, 3);
-  f(span, span, span, 4) = shift(f, 0, -1, 0)(span, span, span, 4);
-  f(span, span, span, 5) = shift(f, 0, 0, 1)(span, span, span, 5);
-  f(span, span, span, 6) = shift(f, 0, 0, -1)(span, span, span, 6);
-  // next-nearest neighbours
-  // xy plane
-  f(span, span, span, 7) = shift(f, 1, 1, 0)(span, span, span, 7);
-  f(span, span, span, 8) = shift(f, -1, 1, 0)(span, span, span, 8);
-  f(span, span, span, 9) = shift(f, 1, -1, 0)(span, span, span, 9);
-  f(span, span, span, 10) = shift(f, -1, -1, 0)(span, span, span, 10);
-  // xz plane
-  f(span, span, span, 11) = shift(f, 1, 0, 1)(span, span, span, 11);
-  f(span, span, span, 12) = shift(f, -1, 0, 1)(span, span, span, 12);
-  f(span, span, span, 13) = shift(f, 1, 0, -1)(span, span, span, 13);
-  f(span, span, span, 14) = shift(f, -1, 0, -1)(span, span, span, 14);
-  // yz plane
-  f(span, span, span, 15) = shift(f, 0, 1, 1)(span, span, span, 15);
-  f(span, span, span, 16) = shift(f, 0, -1, 1)(span, span, span, 16);
-  f(span, span, span, 17) = shift(f, 0, 1, -1)(span, span, span, 17);
-  f(span, span, span, 18) = shift(f, 0, -1, -1)(span, span, span, 18);
-  // next next-nearest neighbours
-  f(span, span, span, 19) = shift(f, 1, 1, 1)(span, span, span, 19);
-  f(span, span, span, 20) = shift(f, -1, 1, 1)(span, span, span, 20);
-  f(span, span, span, 21) = shift(f, 1, -1, 1)(span, span, span, 21);
-  f(span, span, span, 22) = shift(f, -1, -1, 1)(span, span, span, 22);
-  f(span, span, span, 23) = shift(f, 1, 1, -1)(span, span, span, 23);
-  f(span, span, span, 24) = shift(f, -1, 1, -1)(span, span, span, 24);
-  f(span, span, span, 25) = shift(f, 1, -1, -1)(span, span, span, 25);
-  f(span, span, span, 26) = shift(f, -1, -1, -1)(span, span, span, 26);
-  return f;
+    for (int i = 1; i < 27; i++) {
+      f(span, span, span, i) = shift(f, cx[i], cy[i], cz[i])(span, span, span, i);
+    }
+    return f;
 }
 
 static void lbm()
@@ -66,20 +44,9 @@ static void lbm()
   const float rho0 = 1.0;
 
   const int obstacle_x = nx / 4; // x location of the cylinder
-  const int obstacle_y = ny / 2 + ny / 15; // y location of the cylinder
-  const int obstacle_z = nz / 2; // z location of the cylinder
-  const int obstacle_r = ny / 10 + 1; // radius of the cylinder
-
-  // Reynolds number
-  float Re = 150.0; // rho_l * obstacle_r * u_max / mi_l
-  // Lattice speed
-  float u_max = 0.1;
-  // Kinematic viscosity
-  float nu = u_max * 2 * obstacle_r / Re;
-  // Relaxation time
-  float tau = 3 * nu + 0.5;
-  // Relaxation parameter
-  float omega = 1.0 / tau;
+  const int obstacle_y = ny / 2 + ny / 30; // y location of the cylinder
+  const int obstacle_z = nz / 2 + nz / 30; // z location of the cylinder
+  const int obstacle_r = ny / 9; // radius of the cylinder
 
   const float t1 = 8. / 27.;
   const float t2 = 2. / 27.;
@@ -92,38 +59,27 @@ static void lbm()
   array z = tile(range(dim4(1, nz), 1), nx * ny);
 
   // Discrete velocities
-  int cx[27] = {0, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1};
-  int cy[27] = {0, 0, 0, 1,-1, 0, 0, 1, 1,-1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1, 1,-1,-1, 1, 1,-1,-1};
-  int cz[27] = {0, 0, 0, 0, 0, 1,-1, 0, 0, 0, 0, 1, 1,-1,-1, 1, 1,-1,-1, 1, 1, 1, 1,-1,-1,-1,-1};
-  array ex(27, cx);
-  array ey(27, cy);
-  array ez(27, cz);
-
-  // weights
-  float weights[27] = {t1,t2,t2,t2,t2,t2,t2,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t4,t4,t4,t4,t4,t4,t4,t4};
-  array w(27, weights);
+  array ex = {0, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1};
+  array ey = {0, 0, 0, 1,-1, 0, 0, 1, 1,-1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1, 1,-1,-1, 1, 1,-1,-1};
+  array ez = {0, 0, 0, 0, 0, 1,-1, 0, 0, 0, 0, 1, 1,-1,-1, 1, 1,-1,-1, 1, 1, 1, 1,-1,-1,-1,-1};
 
   array CI = (range(dim4(1, 26), 1) + 1) * total_nodes;
-                         // 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
-  unsigned int nb_index_arr[26] = {1,0,3,2,5,4,9,8,7, 6,13,12,11,10,17,16,15,14,25,24,23,22,21,20,19,18};
-  array nbidx(26, nb_index_arr);
+              // 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
+  array nbidx = {1,0,3,2,5,4,9,8,7, 6,13,12,11,10,17,16,15,14,25,24,23,22,21,20,19,20};
   array NBI = CI(span, nbidx);
 
-  array main_index = moddims(range(dim4(total_nodes*27)),nx,ny,nz,27);
-  array nb_index = flat(stream(main_index));
-
   // Multiple relaxation parameters for MRT scheme
-  float s0 = 1.3;
-  float s1 = 1.3;
-  float sv = 1.0;
-  float sb = 0.55;
+  float s0 = 1.0;
+  float s1 = 1.0;
+  float sv = 1.2;
+  float sb = 0.6;
   float s3 = 1.2;
-  float s3b = 0.55;
+  float s3b = 0.6;
   float s4 = 1.2;
   float s4b = 1.2;
   float s5 = 1.2;
   float s6 = 1.2;
-  float relax_params_arr[27] = {
+  array relax_params = {
     s0,
     s1,
     s1,
@@ -152,22 +108,23 @@ static void lbm()
     s5,
     s6,
   };
-  array relax_params(27, relax_params_arr);
   array S = diag(relax_params, 0, false);
   // array S = diag(constant(omega,27), 0, false); // = BGK, or
-  // array S = diag(constant(1.2,27), 0, false); // = SRT set to constant
+  // array S = diag(constant(0.8,27), 0, false); // = SRT set to constant
 
+  // Lattice speed
+  float u_max = 0.1;
   // Kinetic viscosity
-  // float nu = (1.0f / sv - 0.5f) * c_squ * dt;
+  float nu = (1.0 / sv - 0.5) * c_squ * dt;
   // Bulk viscosity
-  float bv = (2.f/3.f) * (1.0f / sb - 0.5f) * c_squ * dt;
+  float bv = (2./3.) * (1.0 / sb - 0.5) * c_squ * dt;
 
-  printf("Reynolds number: %f\n", Re);
+  // printf("Reynolds number: %f\n", Re);
   printf("Lattice speed: %f\n", u_max);
   printf("Lattice viscosity: %f\n", nu);
   printf("Bulk viscosity: %f\n", bv);
-  printf("Relaxation time: %f\n", tau);
-  printf("Relaxation parameter: %f\n", omega);
+  // printf("Relaxation time: %f\n", tau);
+  // printf("Relaxation parameter: %f\n", omega);
 
   // Transformation matrix
   array M = constant(0, 27, 27);
@@ -204,10 +161,12 @@ static void lbm()
 
   // Flow around obstacle
   array BOUND = constant(0, nx, ny, nz);
-  // pipe and spherical obstacle
-  array pipe = moddims((pow(flat(y) - ny/2, 2) + pow(flat(z) - nz/2, 2)) >= pow(ny/2,2)-1, nx, ny, nz);
-  array circle = moddims((pow(flat(x) - obstacle_x, 2) + pow(flat(y) - obstacle_y, 2) + pow(flat(z) - obstacle_z, 2)) <= pow(obstacle_r,2), nx, ny, nz);
-  BOUND(span,span,span) = pipe || circle;
+  // circle
+  BOUND(span,span,span) = moddims((af::pow(flat(x) - obstacle_x, 2) + af::pow(flat(y) - obstacle_y, 2) + af::pow(flat(z) - obstacle_z, 2)) <= pow(obstacle_r,2), nx, ny, nz);
+  BOUND(span, span, end) = 1; // top
+  BOUND(span, span, 0) = 1;   // bottom
+  BOUND(span, end, span) = 1; // front
+  BOUND(span, 0, span) = 1;   // back
 
   // matrix offset of each Occupied Node
   array ON = where(BOUND);
@@ -288,6 +247,11 @@ static void lbm()
   meq(25, span) = rho_cs_4 * UZ_1d;
   meq(26, span) = v_sq + rho_cs_6;
 
+  array u_sq = af::pow(flat(UX), 2) + af::pow(flat(UY), 2) + af::pow(flat(UZ), 2);
+  array eu = (flat(tile(transpose(ex), total_nodes)) * tile(flat(UX),27)) + (flat(tile(transpose(ey), total_nodes)) * tile(flat(UY),27)) + (flat(tile(transpose(ez), total_nodes)) * tile(flat(UZ),27));
+  array meq = flat(tile(transpose(w), total_nodes)) * tile(flat(DENSITY),27) * (1.0f + 3.0f*eu + 4.5f*(af::pow(eu,2)) - 1.5f*(tile(u_sq,27)));
+  meq = moddims(F,nx,ny,nz,27);
+
   array relaxation_part = matmul(S, (moments - meq));
   array collided_moments = moments - relaxation_part;
   array F_postcol = matmul(IM, collided_moments);
@@ -302,21 +266,21 @@ static void lbm()
   unsigned iter = 0;
   unsigned maxiter = 15000;
 
-
   sync(0);
   timer::start();
 
   while (!win->close() && iter < maxiter)
   {
-    array F_streamed = F(nb_index);
+    F = moddims(F, nx, ny, nz, 27);
+    F = stream(F);
 
-    array BOUNCEDBACK = F_streamed(TO_REFLECT); // Densities bouncing back at next timestep
+    array BOUNCEDBACK = F(TO_REFLECT); // Densities bouncing back at next timestep
 
-    array F_2D = moddims(F_streamed, total_nodes, 27);
+    array F_2D = moddims(F, total_nodes, 27);
 
     // Compute macroscopic variables
     array rho = sum(F_2D, 1);
-    DENSITY = moddims(rho, nx, ny, nz);
+    DENSITY = moddims(rho,nx,ny,nz);
 
     array fex = tile(transpose(ex), total_nodes) * F_2D;
     array fey = tile(transpose(ey), total_nodes) * F_2D;
@@ -332,9 +296,10 @@ static void lbm()
     UZ(ON) = 0;
     DENSITY(ON) = 0;
     DENSITY(0,span,span) = 1;
-    DENSITY(end,span,span) = 1;
+    DENSITY(end,span,span) = DENSITY(end-1,span,span);
 
-    array F_t = transpose(F_2D);
+    F(end, span, span, span) = F(end-1, span, span, span);
+    array F_t = transpose(moddims(F, total_nodes, 27));
 
     /*
      * MOMENTS
@@ -356,9 +321,9 @@ static void lbm()
     v_z_sq = UZ_1d * UZ_1d;
     v_sq = v_x_sq + v_y_sq + v_z_sq;
 
-    // /*
-    //  * EQUILIBRIUM MOMENTS
-    //  */
+    /*
+     * EQUILIBRIUM MOMENTS
+     */
     meq(0, span) = DENSITY_1d;
     meq(1, span) = rho_vx;
     meq(2, span) = rho_vy;
@@ -386,18 +351,21 @@ static void lbm()
     meq(24, span) = rho_cs_4 * UY_1d;
     meq(25, span) = rho_cs_4 * UZ_1d;
     meq(26, span) = v_sq + rho_cs_6;
-
-    // array u_sq = pow(flat(UX), 2) + pow(flat(UY), 2) + pow(flat(UZ), 2);
-    // array eu = (flat(tile(transpose(ex), total_nodes)) * tile(flat(UX),27)) + (flat(tile(transpose(ey), total_nodes)) * tile(flat(UY),27)) + (flat(tile(transpose(ez), total_nodes)) * tile(flat(UZ),27));
-    // array feq = flat(tile(transpose(w), total_nodes)) * tile(flat(DENSITY),27) * (1.0f + 3.0f*eu + 4.5f*(af::pow(eu,2)) - 1.5f*(tile(u_sq,27)));
-    // array meq = matmul(M, transpose(moddims(feq,total_nodes,27)));
+    // printf("meq dims = [%lld %lld %lld]\n", meq.dims(0), meq.dims(1), meq.dims(2));
 
      /*
       * COLLISION STEP
       */
+    // Partials
     relaxation_part = matmul(S, (moments - meq));
+    // printf("relaxation_part dims = [%lld %lld %lld]\n", relaxation_part.dims(0), relaxation_part.dims(1), relaxation_part.dims(2));
     collided_moments = moments - relaxation_part;
+    // printf("collided_moments dims = [%lld %lld %lld]\n", collided_moments.dims(0), collided_moments.dims(1), collided_moments.dims(2));
+
     F_postcol = matmul(IM, collided_moments);
+    // println!("Post-collision F from moments (dims): {:?}", &updated_f.dims());
+    // printf("Post-collision F from moments (dims) = [%lld %lld %lld]\n", F_postcol.dims(0), F_postcol.dims(1), F_postcol.dims(2));
+    // Shuffle into 1D array representation of the domain
     F = transpose(F_postcol);
 
     F(REFLECTED) = BOUNCEDBACK;
@@ -417,8 +385,8 @@ static void lbm()
       (*win)(0, 0).setColorMap(AF_COLORMAP_SPECTRUM);
       (*win)(0, 0).image(transpose(normalize(uu))(span, span, (int)ceil(nz / 2)));
       (*win)(0, 1).vectorField(flat(x(filterX,filterY)), flat(y(filterX,filterY)), flat(UX(filterX,filterY,(int)ceil(nz / 2))), flat(UY(filterX,filterY,(int)ceil(nz / 2))), std::move(titleUXY).str().c_str());
-      (*win)(1, 0).image(reorder(normalize(uu)((int)ceil(nx / 4), span, span), 1, 2, 0));
-      // (*win)(1, 1).vectorField(flat(y(filterY,filterZ)), flat(z(filterY,filterZ)), flat(reorder(UY((int)ceil(nx / 4),filterY,filterZ), 1, 2, 0)), flat(reorder(UZ((int)ceil(nx / 4),filterY,filterZ), 1, 2, 0)), std::move(titleUXZ).str().c_str());
+      // (*win)(1, 0).image(transpose(reorder(normalize(uu)(span, ny / 2, span), 0, 2, 1)));
+      // (*win)(1, 1).vectorField(flat(x(filterX,filterZ)), flat(z), flat(UX), flat(UZ), std::move(titleUXZ).str().c_str());
       win->show();
     }
 
@@ -468,7 +436,6 @@ int main(int argc, char *argv[])
   catch (af::exception &e)
   {
     fprintf(stderr, "%s\n", e.what());
-    while (true) {}
     throw;
   }
 

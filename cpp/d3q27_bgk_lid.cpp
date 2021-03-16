@@ -57,21 +57,21 @@ array stream(array f)
 static void lbm(bool console)
 {
   // Grid length, number and spacing
-  const unsigned nx = 64;
-  const unsigned ny = 64;
-  const unsigned nz = 64;
+  const unsigned nx = 100;
+  const unsigned ny = 100;
+  const unsigned nz = 100;
 
   const unsigned total_nodes = nx * ny * nz;
 
   // Physical parameters.
-  const float ux_lid = 0.05; // horizontal lid velocity
+  const float ux_lid = 0.1; // horizontal lid velocity
   const float uy_lid = 0;
   const float uz_lid = 0;
   const float rho0 = 1.0;
   // Reynolds number
-  float Re = 100.0;
+  float Re = 150.0;
   // Kinematic viscosity
-  float nu = ux_lid * 2 * nx / Re;
+  float nu = ux_lid * nx / Re;
   // Relaxation time
   float tau = 3 * nu + 0.5;
   // Relaxation parameter
@@ -95,9 +95,9 @@ static void lbm(bool console)
   seq lidy = seq(1,ny-2);
 
   // Discrete velocities
-  float cx[27] = {0, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1};
-  float cy[27] = {0, 0, 0, 1,-1, 0, 0, 1, 1,-1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1, 1,-1,-1, 1, 1,-1,-1};
-  float cz[27] = {0, 0, 0, 0, 0, 1,-1, 0, 0, 0, 0, 1, 1,-1,-1, 1, 1,-1,-1, 1, 1, 1, 1,-1,-1,-1,-1};
+  int cx[27] = {0, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1};
+  int cy[27] = {0, 0, 0, 1,-1, 0, 0, 1, 1,-1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1, 1,-1,-1, 1, 1,-1,-1};
+  int cz[27] = {0, 0, 0, 0, 0, 1,-1, 0, 0, 0, 0, 1, 1,-1,-1, 1, 1,-1,-1, 1, 1, 1, 1,-1,-1,-1,-1};
   array ex(27, cx);
   array ey(27, cy);
   array ez(27, cz);
@@ -108,7 +108,7 @@ static void lbm(bool console)
 
   array CI = (range(dim4(1, 26), 1) + 1) * total_nodes;
                          // 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
-  float nb_index_arr[26] = {1,0,3,2,5,4,9,8,7, 6,13,12,11,10,17,16,15,14,25,24,23,22,21,20,19,18};
+  unsigned int nb_index_arr[26] = {1,0,3,2,5,4,9,8,7, 6,13,12,11,10,17,16,15,14,25,24,23,22,21,20,19,18};
   array nbidx(26, nb_index_arr);
   array NBI = CI(span, nbidx);
 
@@ -137,9 +137,9 @@ static void lbm(bool console)
   array ez_tiled = flat(tile(transpose(ez), total_nodes));
 
   // Particle distribution function in initial equilibrium state
-  array u_sq = flat(af::pow(UX, 2) + af::pow(UY, 2) + af::pow(UZ, 2));
+  array u_sq = flat(pow(UX, 2) + af::pow(UY, 2) + af::pow(UZ, 2));
   array eu = flat(batchFunc(transpose(ex), flat(UX), mul) + batchFunc(transpose(ey), flat(UY), mul) + batchFunc(transpose(ez), flat(UZ), mul));
-  array F = flat(batchFunc(transpose(w), flat(DENSITY), mul)) * (1.0f + 3.0f*eu + 4.5f*(af::pow(eu,2)) - 1.5f*(tile(u_sq,27)));
+  array F = flat(batchFunc(transpose(w), flat(DENSITY), mul)) * (1.0f + 3.0f*eu + 4.5f*(pow(eu,2)) - 1.5f*(tile(u_sq,27)));
 
   array uu = constant(0,nx,ny,nz);
 
@@ -185,9 +185,9 @@ static void lbm(bool console)
     DENSITY(ON) = 0;
 
     // Collision
-    u_sq = flat(af::pow(UX, 2) + af::pow(UY, 2) + af::pow(UZ, 2));
+    u_sq = flat(pow(UX, 2) + af::pow(UY, 2) + af::pow(UZ, 2));
     eu = flat(batchFunc(transpose(ex), flat(UX), mul) + batchFunc(transpose(ey), flat(UY), mul) + batchFunc(transpose(ez), flat(UZ), mul));
-    array FEQ = flat(batchFunc(transpose(w), flat(DENSITY), mul)) * (1.0f + 3.0f*eu + 4.5f*(af::pow(eu,2)) - 1.5f*(tile(u_sq,27)));
+    array FEQ = flat(batchFunc(transpose(w), flat(DENSITY), mul)) * (1.0f + 3.0f*eu + 4.5f*(pow(eu,2)) - 1.5f*(tile(u_sq,27)));
 
     F = omega * FEQ + (1 - omega) * F_flat;
 
@@ -261,7 +261,7 @@ int main(int argc, char *argv[])
     printf("LBM D2Q9 simulation\n");
     lbm(console);
   }
-  catch (af::exception &e)
+  catch (exception &e)
   {
     fprintf(stderr, "%s\n", e.what());
     throw;

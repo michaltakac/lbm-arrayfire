@@ -20,14 +20,14 @@ int main(int argc, char *argv[]) {
   const float t1 = 4. / 9., t2 = 1. / 9., t3 = 1. / 36.;
   array x = tile(range(nx), 1, ny);
   array y = tile(range(dim4(1, ny), 1), nx, 1);
-  float cx[9] = {0, 1, 0,-1, 0, 1,-1,-1, 1}; // discrete velocities in x-direction
-  float cy[9] = {0, 0, 1, 0,-1, 1, 1,-1,-1}; // discrete velocities in y-direction
+  float cx[9] = {0., 1., 0.,-1., 0., 1.,-1.,-1., 1.}; // discrete velocities in x-direction
+  float cy[9] = {0., 0., 1., 0.,-1., 1., 1.,-1.,-1.}; // discrete velocities in y-direction
   array ex(9, cx);
-  array ey(9, cy);
+  array ey(9, cx);
   float weights[9] = {t1,t2,t2,t2,t2,t3,t3,t3,t3};
   array w(9, weights);
   array CI = (range(dim4(1,8),1)+1) * total_nodes;
-  float nb_index_arr[8] = {2,3,0,1,6,7,4,5};
+  int nb_index_arr[8] = {2,3,0,1,6,7,4,5};
   array nbidx(8, nb_index_arr);
   array NBI = CI(span,nbidx);
   array main_index = moddims(range(dim4(total_nodes*9)),nx,ny,9);
