@@ -64,18 +64,18 @@ static void lbm(bool console)
   const unsigned total_nodes = nx * ny * nz;
 
   // Physical parameters.
-  const float ux_lid = 0.1; // horizontal lid velocity
-  const float uy_lid = 0;
-  const float uz_lid = 0;
-  const float rho0 = 1.0;
+  const float ux_lid = 0.1f; // horizontal lid velocity
+  const float uy_lid = 0.f;
+  const float uz_lid = 0.f;
+  const float rho0 = 1.0f;
   // Reynolds number
-  float Re = 150.0;
+  float Re = 150.0f;
   // Kinematic viscosity
   float nu = ux_lid * nx / Re;
   // Relaxation time
-  float tau = 3 * nu + 0.5;
+  float tau = 3.f * nu + 0.5f;
   // Relaxation parameter
-  float omega = 1.0 / tau;
+  float omega = 1.f / tau;
 
   printf("Horizontal lid velocity ux_lid: %f\n", ux_lid);
   printf("Reynolds number: %f\n", Re);
@@ -88,11 +88,11 @@ static void lbm(bool console)
   const float t3 = 1. / 54.;
   const float t4 = 1. / 216.;
 
-  array x = tile(range(nx), 1, ny);
-  array y = tile(range(dim4(1, ny), 1), nx, 1);
+  array x = tile(range(nx), 1, ny * nz);
+  array y = tile(range(dim4(1, ny), 1), nx, nz);
   array z = tile(range(dim4(1, nz), 1), nx * ny);
-  seq lidx = seq(1,nx-2);
-  seq lidy = seq(1,ny-2);
+  seq lidx = seq(1.0,(double)nx-2,1.0);
+  seq lidy = seq(1.0,(double)ny-2,1.0);
 
   // Discrete velocities
   int cx[27] = {0, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1};
@@ -117,7 +117,7 @@ static void lbm(bool console)
 
   // Open lid
   array BOUND = constant(1, nx, ny, nz);
-  BOUND(lidx,lidy,seq(1,end)) = 0; // all empty except top lid
+  BOUND(lidx,lidy,seq(1.0,end,1.0)) = 0; // all empty except top lid
 
   // matrix offset of each Occupied Node
   array ON = where(BOUND);
@@ -178,6 +178,7 @@ static void lbm(bool console)
     // Macroscopic (Dirichlet) boundary conditions
     UX(lidx,lidy,end) = ux_lid; // lid x - velocity
     UY(lidx,lidy,end) = uy_lid; // lid y - velocity
+    UZ(lidx,lidy,end) = uz_lid; // lid z - velocity
 
     UX(ON) = 0;
     UY(ON) = 0;
@@ -185,7 +186,7 @@ static void lbm(bool console)
     DENSITY(ON) = 0;
 
     // Collision
-    u_sq = flat(pow(UX, 2) + af::pow(UY, 2) + af::pow(UZ, 2));
+    u_sq = flat(pow(UX, 2) + pow(UY, 2) + pow(UZ, 2));
     eu = flat(batchFunc(transpose(ex), flat(UX), mul) + batchFunc(transpose(ey), flat(UY), mul) + batchFunc(transpose(ez), flat(UZ), mul));
     array FEQ = flat(batchFunc(transpose(w), flat(DENSITY), mul)) * (1.0f + 3.0f*eu + 4.5f*(pow(eu,2)) - 1.5f*(tile(u_sq,27)));
 
@@ -198,7 +199,7 @@ static void lbm(bool console)
       uu = moddims(sqrt(u_sq),nx,ny,nz);
       uu(ON) = af::NaN;
 
-      seq filter =  seq(0,nx-1,(int)ceil(nx/30));
+      seq filter = seq(0,nx-1,(double)ceil(nx/30));
 
       const char *str = "Velocity field for iteration ";
       std::stringstream title;

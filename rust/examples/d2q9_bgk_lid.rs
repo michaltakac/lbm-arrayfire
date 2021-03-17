@@ -4,7 +4,20 @@ use std::time::Instant;
 type FloatNum = f32;
 
 fn normalize(a: &Array<FloatNum>) -> Array<FloatNum> {
-  (a / (max_all(&abs(a)).0 * 1.1 as FloatNum)) + 0.1 as FloatNum
+    (a / (max_all(&abs(a)).0 * 1.1 as FloatNum)) + 0.1 as FloatNum
+}
+
+fn stream(f: &Array<FloatNum>) -> Array<FloatNum> {
+    let mut pdf = f.clone();
+    eval!(pdf[1:1:0, 1:1:0, 1:1:1] = shift(&view!(f[1:1:0, 1:1:0, 1:1:1]), &[1, 0, 0, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 2:2:1] = shift(&view!(f[1:1:0, 1:1:0, 2:2:1]), &[0, 1, 0, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 3:3:1] = shift(&view!(f[1:1:0, 1:1:0, 3:3:1]), &[-1, 0, 0, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 4:4:1] = shift(&view!(f[1:1:0, 1:1:0, 4:4:1]), &[0, -1, 0, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 5:5:1] = shift(&view!(f[1:1:0, 1:1:0, 5:5:1]), &[1, 1, 0, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 6:6:1] = shift(&view!(f[1:1:0, 1:1:0, 6:6:1]), &[-1, 1, 0, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 7:7:1] = shift(&view!(f[1:1:0, 1:1:0, 7:7:1]), &[-1, -1, 0, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 8:8:1] = shift(&view!(f[1:1:0, 1:1:0, 8:8:1]), &[1, -1, 0, 0]));
+    pdf
 }
 
 fn lbm() {
@@ -15,8 +28,8 @@ fn lbm() {
     let total_nodes = nx * ny;
 
     // Physical parameters.
-    let ux_lid: FloatNum = 0.05;  // horizontal lid velocity
-    let uy_lid: FloatNum = 0.0;   // vertical lid velocity
+    let ux_lid: FloatNum = 0.05; // horizontal lid velocity
+    let uy_lid: FloatNum = 0.0; // vertical lid velocity
     let rho0: FloatNum = 1.0;
 
     // Reynolds number
@@ -39,8 +52,8 @@ fn lbm() {
     let t2: FloatNum = 1. / 9.;
     let t3: FloatNum = 1. / 36.;
 
-    let x = tile(&range(dim4!(nx), 0), dim4!(1, ny));
-    let y = tile(&range(dim4!(1, ny), 1), dim4!(nx, 1));
+    let x: Array<FloatNum> = tile(&range(dim4!(nx), 0), dim4!(1, ny));
+    let y: Array<FloatNum> = tile(&range(dim4!(1, ny), 1), dim4!(nx, 1));
 
     let dims = dim4!(nx, ny);
 
@@ -56,30 +69,38 @@ fn lbm() {
     //    /  |  \
     //  c7  c4   c8
     // Discrete velocities
-    let ex = Array::<FloatNum>::new(&[0., 1., 0.,-1., 0., 1.,-1.,-1., 1.], dim4!(9));
-    let ey = Array::<FloatNum>::new(&[0., 0., 1., 0.,-1., 1., 1.,-1.,-1.], dim4!(9));
+    let ex = Array::<FloatNum>::new(&[0., 1., 0., -1., 0., 1., -1., -1., 1.], dim4!(9));
+    let ey = Array::<FloatNum>::new(&[0., 0., 1., 0., -1., 1., 1., -1., -1.], dim4!(9));
 
     // weights
-    let w = Array::new(&[t1,t2,t2,t2,t2,t3,t3,t3,t3], dim4!(9));
+    let w = Array::new(&[t1, t2, t2, t2, t2, t3, t3, t3, t3], dim4!(9));
 
-    let ci: Array<u64> = (range::<u64>(dim4!(1, 8),1) + 1) * total_nodes;
-    let nbidx = Array::new(&[2,3,0,1,6,7,4,5], dim4!(8));
+    let ci: Array<u64> = (range::<u64>(dim4!(1, 8), 1) + 1) * total_nodes;
+    let nbidx = Array::new(&[2, 3, 0, 1, 6, 7, 4, 5], dim4!(8));
     let span = seq!();
     let nbi: Array<u64> = view!(ci[span, nbidx]);
 
-    // Flow around obstacle
-    // circle
+    let main_index = moddims(&range(dim4!(total_nodes * 9), 0), dim4!(nx, ny, 9));
+    let nb_index = flat(&stream(&main_index));
+
+    // Open lid
     let mut bound = constant::<FloatNum>(1.0, dims);
     let zeros = constant::<FloatNum>(0.0, dims);
-    let all_except_top_lid = seq!(1,ny as i32 - 1,1);
-    assign_seq(&mut bound, &[lid, all_except_top_lid], &index(&zeros, &[lid, all_except_top_lid]));
+    let all_except_top_lid = seq!(1, ny as i32 - 1, 1);
+    assign_seq(
+        &mut bound,
+        &[lid, all_except_top_lid],
+        &index(&zeros, &[lid, all_except_top_lid]),
+    );
 
     // matrix offset of each Occupied Node
     let on = locate(&bound);
 
     // Bounceback indexes
-    let to_reflect = flat(&tile(&on,dim4!(ci.elements() as u64))) + flat(&tile(&ci,dim4!(on.elements() as u64)));
-    let reflected = flat(&tile(&on,dim4!(nbi.elements() as u64))) + flat(&tile(&nbi,dim4!(on.elements() as u64)));
+    let to_reflect = flat(&tile(&on, dim4!(ci.elements() as u64)))
+        + flat(&tile(&ci, dim4!(on.elements() as u64)));
+    let reflected = flat(&tile(&on, dim4!(nbi.elements() as u64)))
+        + flat(&tile(&nbi, dim4!(on.elements() as u64)));
 
     let mut density = constant::<FloatNum>(rho0, dims);
     let mut ux = constant::<FloatNum>(0.0, dims);
@@ -87,15 +108,18 @@ fn lbm() {
 
     let zeroed_on = constant::<FloatNum>(0.0, on.dims());
 
-    // Indexes for directions, corner case
-    let idxdirs1 = Array::new(&[0, 1, 3], dim4!(3));
-    let idxdirs2 = Array::new(&[2, 5, 6], dim4!(3));
-
     // Start in equilibrium state
-    let mut u_sq = pow(&ux, &(2.0 as FloatNum), false) + pow(&uy, &(2.0 as FloatNum), false);
-    let mut eu = (flat(&tile(&transpose(&ex, false), dim4!(total_nodes))) * tile(&flat(&ux),dim4!(9))) + (flat(&tile(&transpose(&ey, false), dim4!(total_nodes))) * &tile(&flat(&uy), dim4!(9)));
-    let mut f = flat(&tile(&transpose(&w, false), dim4!(total_nodes))) * &tile(&flat(&density), dim4!(9)) * ((1.0 as FloatNum) + (3.0 as FloatNum) * &eu + (4.5 as FloatNum) * (&pow(&eu, &(2.0 as FloatNum), false)) - (1.5 as FloatNum) * (&tile(&flat(&u_sq), dim4!(9))));
-    f = moddims(&f, dim4!(nx,ny,9));
+    let mut u_sq: Array<FloatNum> =
+        flat(&(pow(&ux, &(2.0 as FloatNum), false) + pow(&uy, &(2.0 as FloatNum), false)));
+    let mut eu: Array<FloatNum> = flat(
+        &(&mul(&transpose(&ex, false), &flat(&ux), true)
+            + &mul(&transpose(&ey, false), &flat(&uy), true)),
+    );
+    let mut f: Array<FloatNum> = flat(&mul(&transpose(&w, false), &flat(&density), true))
+        * ((1.0 as FloatNum)
+            + (3.0 as FloatNum) * &eu
+            + (4.5 as FloatNum) * (&pow(&eu, &(2.0 as FloatNum), false))
+            - (1.5 as FloatNum) * (&tile(&flat(&u_sq), dim4!(9))));
 
     // Create a window to show the waves.
     let mut win = Window::new(1536, 768, "LBM solver using ArrayFire".to_string());
@@ -111,81 +135,85 @@ fn lbm() {
     mem_info!("Before benchmark");
 
     while !win.is_closed() && iter < maxiter {
-        // Streaming
-        let pre_stream = &view!(f[span, span, span]);
-        assign_seq(&mut f, &[span, span, seq!(1:1:1)], &shift(&index(pre_stream, &[span, span, seq!(1:1:1)]), &[ 1, 0, 0, 0]));
-        assign_seq(&mut f, &[span, span, seq!(2:2:1)], &shift(&index(pre_stream, &[span, span, seq!(2:2:1)]), &[ 0, 1, 0, 0]));
-        assign_seq(&mut f, &[span, span, seq!(3:3:1)], &shift(&index(pre_stream, &[span, span, seq!(3:3:1)]), &[-1, 0, 0, 0]));
-        assign_seq(&mut f, &[span, span, seq!(4:4:1)], &shift(&index(pre_stream, &[span, span, seq!(4:4:1)]), &[ 0,-1, 0, 0]));
-        assign_seq(&mut f, &[span, span, seq!(5:5:1)], &shift(&index(pre_stream, &[span, span, seq!(5:5:1)]), &[ 1, 1, 0, 0]));
-        assign_seq(&mut f, &[span, span, seq!(6:6:1)], &shift(&index(pre_stream, &[span, span, seq!(6:6:1)]), &[-1, 1, 0, 0]));
-        assign_seq(&mut f, &[span, span, seq!(7:7:1)], &shift(&index(pre_stream, &[span, span, seq!(7:7:1)]), &[-1,-1, 0, 0]));
-        assign_seq(&mut f, &[span, span, seq!(8:8:1)], &shift(&index(pre_stream, &[span, span, seq!(8:8:1)]), &[ 1,-1, 0, 0]));
+        // Streaming by reading from neighbors (with pre-built index) - pull scheme
+        let f_streamed = view!(f[nb_index]);
 
-        let bouncedback = view!(f[to_reflect]); // Densities bouncing back at next timestep
+        let bouncedback = view!(f_streamed[to_reflect]); // Densities bouncing back at next timestep
+
+        let f_2d = moddims(&f_streamed, dim4!(total_nodes, 9));
 
         // Compute macroscopic variables
-        density = sum(&f, 2);
+        let rho = sum(&f_2d, 1);
+        density = moddims(&rho, dims);
 
-        let f_2d = moddims(&f, dim4!(total_nodes, 9));
+        let fex = mul(&transpose(&ex, false), &f_2d, true);
+        let fey = mul(&transpose(&ey, false), &f_2d, true);
 
-        let fex = moddims(&(tile(&transpose(&ex, false), dim4!(total_nodes)) * &f_2d), dim4!(nx,ny,9));
-        let fey = moddims(&(tile(&transpose(&ey, false), dim4!(total_nodes)) * &f_2d), dim4!(nx,ny,9));
+        ux = moddims(&(sum(&fex, 1) / &rho), dims);
+        uy = moddims(&(sum(&fey, 1) / &rho), dims);
 
-        ux = sum(&fex, 2) / &density;
-        uy = sum(&fey, 2) / &density;
-
-        // MACROSCOPIC (DIRICHLET) BOUNDARY CONDITIONS
+        // Macroscopic (Dirichlet) boundary conditions
         eval!(ux[lid, end_y] = view!(ux_lid_af[lid, end_y]));
         eval!(uy[lid, end_y] = view!(uy_lid_af[lid, end_y]));
-        assign_seq(&mut density, &[lid, end_y], &(1.0 as FloatNum / (1.0 as FloatNum + view!(uy[lid, end_y])) * (sum(&view!(f[lid, end_y, idxdirs1]), 2) + 2.0 as FloatNum * sum(&view!(f[lid, end_y, idxdirs2]), 2))));
-
-        // MICROSCOPIC BOUNDARY CONDITIONS: LID (Zou/He BC)
-        let pre_bc = &view!(f[span, span, span]);
-        assign_seq(&mut f, &[lid, end_y, seq!(4:4:1)], &(index(&pre_bc, &[lid, end_y, seq!(2:2:1)]) - 2./3. as FloatNum * view!(density[lid, end_y]) * view!(uy[lid, end_y])));
-        assign_seq(&mut f, &[lid, end_y, seq!(8:8:1)], &(index(&pre_bc, &[lid, end_y, seq!(6:6:1)]) + 1./2. as FloatNum * (index(&pre_bc, &[lid, end_y, seq!(3:3:1)]) - index(&pre_bc, &[lid, end_y, seq!(1:1:1)])) + 1./2. as FloatNum * view!(density[lid, end_y]) * view!(ux[lid, end_y]) - 1./6. as FloatNum * view!(density[lid, end_y]) * view!(uy[lid, end_y])));
-        assign_seq(&mut f, &[lid, end_y, seq!(8:8:1)], &(index(&pre_bc, &[lid, end_y, seq!(5:5:1)]) + 1./2. as FloatNum * (index(&pre_bc, &[lid, end_y, seq!(1:1:1)]) - index(&pre_bc, &[lid, end_y, seq!(3:3:1)])) - 1./2. as FloatNum * view!(density[lid, end_y]) * view!(ux[lid, end_y]) - 1./6. as FloatNum * view!(density[lid, end_y]) * view!(uy[lid, end_y])));
 
         eval!(ux[on] = zeroed_on);
         eval!(uy[on] = zeroed_on);
         eval!(density[on] = zeroed_on);
 
         // Collision
-        u_sq = pow(&ux, &(2.0 as FloatNum), false) + pow(&uy, &(2.0 as FloatNum), false);
-        eu = (flat(&tile(&transpose(&ex, false), dim4!(total_nodes))) * tile(&flat(&ux),dim4!(9))) + (flat(&tile(&transpose(&ey, false), dim4!(total_nodes))) * &tile(&flat(&uy), dim4!(9)));
-        let mut feq = flat(&tile(&transpose(&w, false), dim4!(total_nodes))) * &tile(&flat(&density), dim4!(9)) * ((1.0 as FloatNum) + (3.0 as FloatNum) * &eu + (4.5 as FloatNum) * (&pow(&eu, &(2.0 as FloatNum), false)) - (1.5 as FloatNum) * (&tile(&flat(&u_sq), dim4!(9))));
-        feq = moddims(&feq,dim4!(nx,ny,9));
+        u_sq = flat(&(pow(&ux, &(2.0 as FloatNum), false) + pow(&uy, &(2.0 as FloatNum), false)));
+        eu = flat(
+            &(&mul(&transpose(&ex, false), &flat(&ux), true)
+                + &mul(&transpose(&ey, false), &flat(&uy), true)),
+        );
+        let feq = flat(&mul(&transpose(&w, false), &flat(&density), true))
+            * ((1.0 as FloatNum)
+                + (3.0 as FloatNum) * &eu
+                + (4.5 as FloatNum) * (&pow(&eu, &(2.0 as FloatNum), false))
+                - (1.5 as FloatNum) * (&tile(&flat(&u_sq), dim4!(9))));
 
-        f = omega * feq + (1.0 - omega) * f;
+        f = omega * feq + (1.0 - omega) * f_streamed;
 
         eval!(f[reflected] = bouncedback);
 
         // Visualization
         if iter % 10 == 0 {
-            let mut uu = sqrt(&u_sq);
+            let mut uu = moddims(&sqrt(&u_sq), dims);
             eval!(uu[on] = constant::<FloatNum>(FloatNum::NAN, on.dims()));
 
             let filter = seq!(0, nx as i32 - 1, nx as i32 / 30);
 
             win.set_view(0, 0);
             win.set_colormap(ColorMap::SPECTRUM);
-            win.draw_image(&flip(&transpose(&normalize(&uu), false), 0), Some("XY domain".to_string()));
+            win.draw_image(
+                &flip(&transpose(&normalize(&uu), false), 0),
+                Some(format!("XY domain in iteration {}", &iter).to_string()),
+            );
 
             win.set_view(0, 1);
             win.set_axes_limits_2d(0.0, nx as f32, 0.0, ny as f32, true);
-            win.draw_vector_field2(&flat(&view!(x[filter,filter])), &flat(&view!(y[filter,filter])), &flat(&view!(ux[filter,filter])), &flat(&view!(uy[filter,filter])), Some("Velocity field".to_string()));
+            win.draw_vector_field2(
+                &flat(&view!(x[filter,filter])),
+                &flat(&view!(y[filter,filter])),
+                &flat(&view!(ux[filter,filter])),
+                &flat(&view!(uy[filter,filter])),
+                Some(format!("Velocity field in iteration {}", &iter).to_string()),
+            );
 
             win.show();
         }
 
+        sync(0);
         let time = timer.elapsed().as_secs() as FloatNum;
         mlups.push((total_nodes as FloatNum * iter as FloatNum * 10e-6) / time);
 
         if iter % 100 == 0 {
-            println!("{} iterations completed, {}s elapsed ({} MLUPS).", iter, time, mlups[iter as usize]);
+            println!(
+                "{} iterations completed, {}s elapsed ({} MLUPS).",
+                iter, time, mlups[iter as usize]
+            );
         }
 
-        sync(0);
         iter += 1;
     }
 
