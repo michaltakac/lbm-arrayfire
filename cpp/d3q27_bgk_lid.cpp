@@ -137,7 +137,7 @@ static void lbm(bool console)
   array ez_tiled = flat(tile(transpose(ez), total_nodes));
 
   // Particle distribution function in initial equilibrium state
-  array u_sq = flat(pow(UX, 2) + af::pow(UY, 2) + af::pow(UZ, 2));
+  array u_sq = flat(pow(UX, 2) + pow(UY, 2) + pow(UZ, 2));
   array eu = flat(batchFunc(transpose(ex), flat(UX), mul) + batchFunc(transpose(ey), flat(UY), mul) + batchFunc(transpose(ez), flat(UZ), mul));
   array F = flat(batchFunc(transpose(w), flat(DENSITY), mul)) * (1.0f + 3.0f*eu + 4.5f*(pow(eu,2)) - 1.5f*(tile(u_sq,27)));
 
@@ -209,7 +209,7 @@ static void lbm(bool console)
       (*win)(0, 1).setAxesLimits(0.0f,(float)nx,0.0f,(float)ny,true);
       (*win)(0, 1).vectorField(flat(x(filter,filter)), flat(y(filter,filter)), flat(UX(filter,filter,(int)ceil(nz / 2))), flat(UY(filter,filter,(int)ceil(nz / 2))), std::move(title).str().c_str());
       (*win)(1, 0).setColorMap(AF_COLORMAP_SPECTRUM);
-      (*win)(1, 0).image(normalize(uu)(span, span, (int)ceil(nz / 2)));
+      (*win)(1, 0).image(flip(transpose(reorder(normalize(uu), 0, 2, 1)(span, span, (int)ceil(ny / 2))), 0));
       (*win)(1, 1).setAxesLimits(0.0f,(float)nx,0.0f,(float)nz,true);
       (*win)(1, 1).vectorField(flat(x(filter,filter)), flat(z(filter,filter)), flat(UX(filter,filter,(int)ceil(nz / 2))), flat(UZ(filter,filter,(int)ceil(nz / 2))), std::move(title).str().c_str());
       win->show();

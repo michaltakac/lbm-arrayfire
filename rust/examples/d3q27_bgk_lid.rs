@@ -47,9 +47,9 @@ fn stream(f: &Array<FloatNum>) -> Array<FloatNum> {
 
 fn lbm() {
     // Grid length, number and spacing
-    let nx: u64 = 32;
-    let ny: u64 = 32;
-    let nz: u64 = 32;
+    let nx: u64 = 100;
+    let ny: u64 = 100;
+    let nz: u64 = 100;
 
     let total_nodes = nx * ny * nz;
 
@@ -152,7 +152,7 @@ fn lbm() {
 
     // Create a window to show the waves.
     let mut win = Window::new(1536, 768, "LBM solver using ArrayFire".to_string());
-    win.grid(1, 2);
+    win.grid(2, 2);
 
     let mut iter: u64 = 0;
     let maxiter: u64 = 15000;
@@ -216,25 +216,32 @@ fn lbm() {
             eval!(uu[on] = constant::<FloatNum>(FloatNum::NAN, on.dims()));
 
             let filter = seq!(0, nx as i32 - 1, nx as i32 / 30);
-            let z_section = seq!(nz as i32 / 2, nz as i32 / 2, 0);
+            let z_section = seq!(nz as i32 / 2, nz as i32 / 2, 1);
 
-            let xy_view = index(&reorder_v2(&uu, 1, 0, Some(vec![2])), &[span, span, z_section]);
+            let xy_view = index(&reorder_v2(&normalize(&uu), 1, 0, Some(vec![2])), &[span, span, z_section]);
 
             win.set_view(0, 0);
             win.set_colormap(ColorMap::SPECTRUM);
             win.draw_image(
-              &flip(&transpose(&normalize(&xy_view), false), 0),
+              &flip(&transpose(&xy_view, false), 0),
               Some(format!("XY domain in iteration {}", &iter).to_string()),
             );
 
-            win.set_view(0, 1);
-            win.set_axes_limits_2d(0.0, nx as f32, 0.0, ny as f32, true);
-            win.draw_vector_field2(
-                &flat(&view!(x[filter,filter])),
-                &flat(&view!(y[filter,filter])),
-                &flat(&view!(ux[filter,filter,z_section])),
-                &flat(&view!(uy[filter,filter,z_section])),
-                Some(format!("Velocity field in iteration {}", &iter).to_string()),
+            // win.set_view(0, 1);
+            // win.set_axes_limits_2d(0.0, nx as f32, 0.0, ny as f32, true);
+            // win.draw_vector_field2(
+            //     &flat(&view!(x[filter,filter])),
+            //     &flat(&view!(y[filter,filter])),
+            //     &flat(&view!(ux[filter,filter,z_section])),
+            //     &flat(&view!(uy[filter,filter,z_section])),
+            //     Some(format!("Velocity field in iteration {}", &iter).to_string()),
+            // );
+
+            win.set_view(1, 0);
+            win.set_colormap(ColorMap::SPECTRUM);
+            win.draw_image(
+              &normalize(&index(&uu, &[span, span, z_section])),
+              Some(format!("XY domain in iteration {}", &iter).to_string()),
             );
 
             win.show();
