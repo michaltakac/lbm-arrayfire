@@ -30,8 +30,8 @@ array stream(array f) {
 static void lbm()
 {
   // Grid length, number and spacing
-  const unsigned nx = 201;
-  const unsigned ny = 201;
+  const unsigned nx = 100;
+  const unsigned ny = 100;
 
   const unsigned total_nodes = nx * ny;
 
@@ -88,6 +88,9 @@ static void lbm()
   array rhoContrib1y = constant(0.f, total_nodes);
   array rhoContrib2y = constant(0.f, total_nodes);
 
+  array cu1 = constant(0.f, total_nodes);
+  array cu2 = constant(0.f, total_nodes);
+
   // Setup Window
   win = new Window(800, 800, "LBM solver using ArrayFire");
   win->grid(1, 1);
@@ -101,8 +104,8 @@ static void lbm()
   while (!win->close() && iter < maxiter)
   {
     // Streaming both fluids by reading from neighbors (with pre-built index) - pull scheme
-    array F_streamed = f(nb_index);
-    array G_streamed = g(nb_index);
+    array F_streamed = f_out(nb_index);
+    array G_streamed = g_out(nb_index);
 
     array F_2D = moddims(F_streamed, total_nodes, 9);
     array G_2D = moddims(G_streamed, total_nodes, 9);
@@ -110,54 +113,65 @@ static void lbm()
     // Compute macroscopic variables
     array rho1 = sum(F_2D, 1);
     array rho2 = sum(G_2D, 1);
-    printf("rho1 dims = [%lld %lld %lld]\n", rho1.dims(0), rho1.dims(1), rho1.dims(2));
+    // printf("rho1 dims = [%lld %lld %lld]\n", rho1.dims(0), rho1.dims(1), rho1.dims(2));
 
     array fex = batchFunc(transpose(ex), F_2D, mul);
     array fey = batchFunc(transpose(ey), F_2D, mul);
     array gex = batchFunc(transpose(ex), G_2D, mul);
     array gey = batchFunc(transpose(ey), G_2D, mul);
-    printf("fex dims = [%lld %lld %lld]\n", fex.dims(0), fex.dims(1), fex.dims(2));
+    // printf("fex dims = [%lld %lld %lld]\n", fex.dims(0), fex.dims(1), fex.dims(2));
 
     array JX1 = sum(fex, 1) / rho1;
     array JY1 = sum(fey, 1) / rho1;
     array JX2 = sum(gex, 1) / rho2;
     array JY2 = sum(gey, 1) / rho2;
-    printf("JX1 dims = [%lld %lld %lld]\n", JX1.dims(0), JX1.dims(1), JX1.dims(2));
+    // printf("JX1 dims = [%lld %lld %lld]\n", JX1.dims(0), JX1.dims(1), JX1.dims(2));
 
     array rho_to_t_omega = rho1 * omega1 + rho2 * omega2;
-    printf("rho_to_t_omega dims = [%lld %lld %lld]\n", rho_to_t_omega.dims(0), rho_to_t_omega.dims(1), rho_to_t_omega.dims(2));
+    // printf("rho_to_t_omega dims = [%lld %lld %lld]\n", rho_to_t_omega.dims(0), rho_to_t_omega.dims(1), rho_to_t_omega.dims(2));
     array uTotX = (JX1*omega1+JX2*omega2) / rho_to_t_omega;
     array uTotY = (JY1*omega1+JY2*omega2) / rho_to_t_omega;
-    printf("uTotX dims = [%lld %lld %lld]\n", uTotX.dims(0), uTotX.dims(1), uTotX.dims(2));
+    // printf("uTotX dims = [%lld %lld %lld]\n", uTotX.dims(0), uTotX.dims(1), uTotX.dims(2));
+
+    array rho1w = moddims(batchFunc(transpose(w), rho1, mul),nx,ny,9);
+    array rho2w = moddims(batchFunc(transpose(w), rho2, mul),nx,ny,9);
+    // printf("rho1w dims = [%lld %lld %lld]\n", rho1w.dims(0), rho1w.dims(1), rho1w.dims(2));
 
     for (int i=1; i < 9; i++) {
-        rhoContrib1x += shift(rho1*weights[i], cx[i], cy[i]) * cx[i]; // TODO: nesedi!
-        rhoContrib1y += shift(rho1*weights[i], cx[i], cy[i]) * cy[i];
+      rhoContrib1x += flat(shift(rho1w, cx[i], cy[i])(span,span,i) * cx[i]);
+      rhoContrib1y += flat(shift(rho1w, cx[i], cy[i])(span,span,i) * cy[i]);
 
-        rhoContrib2x += shift(rho2*weights[i], cx[i], cy[i]) * cx[i];
-        rhoContrib2y += shift(rho2*weights[i], cx[i], cy[i]) * cy[i];
+      rhoContrib2x += flat(shift(rho1w, cx[i], cy[i])(span,span,i) * cx[i]);
+      rhoContrib2y += flat(shift(rho1w, cx[i], cy[i])(span,span,i) * cy[i]);
+      // rhoContrib1x = rhoContrib1x + temp;
+        // rhoContrib1x = rhoContrib1x + shift(rho1*weights[i], cx[i], cy[i]) * cx[i]; // TODO: nesedi!
+        // rhoContrib1y = rhoContrib1y + shift(rho1*weights[i], cx[i], cy[i]) * cy[i];
+
+        // rhoContrib2x = rhoContrib2x + shift(rho2*weights[i], cx[i], cy[i]) * cx[i];
+        // rhoContrib2y = rhoContrib2y + shift(rho2*weights[i], cx[i], cy[i]) * cy[i];
     }
-printf("rhoContrib2x dims = [%lld %lld %lld]\n", rhoContrib2x.dims(0), rhoContrib2x.dims(1), rhoContrib2x.dims(2));
+// printf("rhoContrib2x dims = [%lld %lld %lld]\n", rhoContrib2x.dims(0), rhoContrib2x.dims(1), rhoContrib2x.dims(2));
     array uTotX1 = uTotX - Gomega1 * rhoContrib2x;
     array uTotY1 = uTotY - Gomega1 * rhoContrib2y;
 
     array uTotX2 = uTotX - Gomega2 * rhoContrib1x;
     array uTotY2 = uTotY - Gomega2 * rhoContrib1y;
 
-    printf("uTotX1 dims = [%lld %lld %lld]\n", uTotX1.dims(0), uTotX1.dims(1), uTotX1.dims(2));
+    // printf("uTotX1 dims = [%lld %lld %lld]\n", uTotX1.dims(0), uTotX1.dims(1), uTotX1.dims(2));
 
     // Collision for both fluids
     for (int i=0; i < 9; i++) {
-      array cu1 = 3*(cx[i]*uTotX1+cy[i]*uTotY1);
-      array cu2 = 3*(cx[i]*uTotX2+cy[i]*uTotY2);
-      printf("cu1 dims = [%lld %lld %lld]\n", cu1.dims(0), cu1.dims(1), cu1.dims(2));
+      cu1 = 3.f*(cx[i]*uTotX1+cy[i]*uTotY1);
+      cu2 = 3.f*(cx[i]*uTotX2+cy[i]*uTotY2);
+      // printf("cu1 dims = [%lld %lld %lld]\n", cu1.dims(0), cu1.dims(1), cu1.dims(2));
 
       feq(span,i) = rho1 * weights[i] * (1.f + cu1 + 0.5f *(cu1*cu1) - 1.5f * (pow(uTotX1,2)+pow(uTotY1,2)));
       geq(span,i) = rho2 * weights[i] * (1.f + cu2 + 0.5f *(cu2*cu2) - 1.5f * (pow(uTotX2,2)+pow(uTotY2,2)));
-      printf("f dims = [%lld %lld %lld]\n", f.dims(0), f.dims(1), f.dims(2));
+      // printf("f dims = [%lld %lld %lld]\n", f.dims(0), f.dims(1), f.dims(2));
 
       f_out(span,i)  = f(span,i) - omega1 * (f(span,i)-feq(span,i));
       g_out(span,i)  = g(span,i) - omega2 * (g(span,i)-geq(span,i));
+      //  printf("f_out dims = [%lld %lld %lld]\n", f_out.dims(0), f_out.dims(1), f_out.dims(2));
     }
 
     // STREAMING STEP FLUID 1 AND 2
