@@ -16,6 +16,9 @@ if(ArrayFire_CPU_FOUND)
   add_executable(d2q9_bgk_lid_cpu d2q9_bgk_lid.cpp)
   target_link_libraries(d2q9_bgk_lid_cpu ArrayFire::afcpu)
 
+  add_executable(d2q9_shanchen_cpu d2q9_shanchen.cpp)
+  target_link_libraries(d2q9_shanchen_cpu ArrayFire::afcpu)
+
   # D3Q27 BGK
   add_executable(d3q27_bgk_channel_cpu d3q27_bgk_channel.cpp)
   target_link_libraries(d3q27_bgk_channel_cpu ArrayFire::afcpu)
@@ -42,6 +45,9 @@ if(ArrayFire_CUDA_FOUND)
   add_executable(d2q9_bgk_lid_cuda d2q9_bgk_lid.cpp)
   target_link_libraries(d2q9_bgk_lid_cuda ArrayFire::afcuda)
 
+  add_executable(d2q9_shanchen_cuda d2q9_shanchen.cpp)
+  target_link_libraries(d2q9_shanchen_cuda ArrayFire::afcuda)
+
   # D3Q27 BGK
   add_executable(d3q27_bgk_channel_cuda d3q27_bgk_channel.cpp)
   target_link_libraries(d3q27_bgk_channel_cuda ArrayFire::afcuda)
@@ -67,6 +73,9 @@ if(ArrayFire_OpenCL_FOUND)
 
   add_executable(d2q9_bgk_lid_opencl d2q9_bgk_lid.cpp)
   target_link_libraries(d2q9_bgk_lid_opencl ArrayFire::afopencl)
+
+  add_executable(d2q9_shanchen_opencl d2q9_shanchen.cpp)
+  target_link_libraries(d2q9_shanchen_opencl ArrayFire::afopencl)
 
   # D3Q27 BGK
   add_executable(d3q27_bgk_channel_opencl d3q27_bgk_channel.cpp)

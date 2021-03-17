@@ -308,6 +308,7 @@ static void lbm()
 
   while (!win->close() && iter < maxiter)
   {
+    // Streaming by reading from neighbors (with pre-built index) - pull scheme
     array F_streamed = F(nb_index);
 
     array BOUNCEDBACK = F_streamed(TO_REFLECT); // Densities bouncing back at next timestep

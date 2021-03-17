@@ -159,12 +159,12 @@ static void lbm()
 
   while (!win->close() && iter < maxiter)
   {
+    // Streaming by reading from neighbors (with pre-built index) - pull scheme
     array F_streamed = F(nb_index);
 
     array BOUNCEDBACK = F_streamed(TO_REFLECT); // Densities bouncing back at next timestep
 
     array F_2D = moddims(F_streamed, total_nodes, 27);
-    array F_flat = flat(F_2D);
 
     // Compute macroscopic variables
     array rho = sum(F_2D, 1);
@@ -191,7 +191,7 @@ static void lbm()
     eu = flat(batchFunc(transpose(ex), flat(UX), mul) + batchFunc(transpose(ey), flat(UY), mul) + batchFunc(transpose(ez), flat(UZ), mul));
     array FEQ = flat(batchFunc(transpose(w), flat(DENSITY), mul)) * (1.0f + 3.0f*eu + 4.5f*(pow(eu,2)) - 1.5f*(tile(u_sq,27)));
 
-    F = omega * FEQ + (1 - omega) * F_flat;
+    F = omega * FEQ + (1 - omega) * F_streamed;
 
     F(REFLECTED) = BOUNCEDBACK;
 

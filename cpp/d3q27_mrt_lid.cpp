@@ -281,6 +281,7 @@ static void lbm()
 
   while (!win->close() && iter < maxiter)
   {
+    // Streaming by reading from neighbors (with pre-built index) - pull scheme
     array F_streamed = F(nb_index);
 
     array BOUNCEDBACK = F_streamed(TO_REFLECT); // Densities bouncing back at next timestep
@@ -330,9 +331,9 @@ static void lbm()
     v_z_sq = UZ_1d * UZ_1d;
     v_sq = v_x_sq + v_y_sq + v_z_sq;
 
-    // /*
-    //  * EQUILIBRIUM MOMENTS
-    //  */
+    /*
+     * EQUILIBRIUM MOMENTS
+     */
     meq(0, span) = DENSITY_1d;
     meq(1, span) = rho_vx;
     meq(2, span) = rho_vy;

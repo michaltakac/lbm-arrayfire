@@ -73,17 +73,17 @@ static void lbm()
   //    /  |  \
   //  c7  c4   c8
   // Discrete velocities
-  int cx[9] = {0, 1, 0,-1, 0, 1,-1,-1, 1};
-  int cy[9] = {0, 0, 1, 0,-1, 1, 1,-1,-1};
+  float cx[9] = {0, 1, 0,-1, 0, 1,-1,-1, 1};
+  float cy[9] = {0, 0, 1, 0,-1, 1, 1,-1,-1};
   array ex(9, cx);
-  array ey(9, cy);
+  array ey(9, cx);
 
   // weights
   float weights[9] = {t1,t2,t2,t2,t2,t3,t3,t3,t3};
   array w(9, weights);
 
   array CI = (range(dim4(1,8),1)+1) * total_nodes;
-  unsigned int nb_index_arr[8] = {2,3,0,1,6,7,4,5};
+  float nb_index_arr[8] = {2,3,0,1,6,7,4,5};
   array nbidx(8, nb_index_arr);
   array NBI = CI(span,nbidx);
 
@@ -132,12 +132,12 @@ static void lbm()
 
   while (!win->close() && iter < maxiter)
   {
+    // Streaming by reading from neighbors (with pre-built index) - pull scheme
     array F_streamed = F(nb_index);
 
     array BOUNCEDBACK = F_streamed(TO_REFLECT); // Densities bouncing back at next timestep
 
     array F_2D = moddims(F_streamed, total_nodes, 9);
-    array F_flat = flat(F_2D);
 
     // Compute macroscopic variables
     array rho = sum(F_2D, 1);
@@ -161,7 +161,7 @@ static void lbm()
     eu = flat(batchFunc(transpose(ex), flat(UX), mul) + batchFunc(transpose(ey), flat(UY), mul));
     array FEQ = flat(batchFunc(transpose(w), flat(DENSITY), mul)) * (1.0f + 3.0f*eu + 4.5f*(af::pow(eu,2)) - 1.5f*(tile(u_sq,9)));
 
-    F = omega * FEQ + (1 - omega) * F_flat;
+    F = omega * FEQ + (1 - omega) * F_streamed;
 
     F(REFLECTED) = BOUNCEDBACK;
 
