@@ -203,7 +203,7 @@ fn lbm() {
         eval!(f[reflected] = bouncedback);
 
         // Visualization
-        // if iter % 10 == 0 {
+        if iter % 10 == 0 {
             let mut uu = moddims(&sqrt(&u_sq), dims);
             eval!(uu[on] = constant::<FloatNum>(FloatNum::NAN, on.dims()));
 
@@ -228,7 +228,7 @@ fn lbm() {
             );
 
             win.show();
-        // }
+        }
 
         sync(0);
         let time = timer.elapsed().as_secs() as FloatNum;
