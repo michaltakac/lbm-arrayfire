@@ -19,3 +19,4 @@ path = "examples/d2q9_bgk_lid.rs"
 [[example]]
 name = "lid3" # examples/d3q27_bgk_lid.rs
 path = "examples/d3q27_bgk_lid.rs"
+
