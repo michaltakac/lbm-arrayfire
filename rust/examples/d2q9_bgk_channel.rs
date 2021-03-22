@@ -23,7 +23,7 @@ fn stream(f: &Array<FloatNum>) -> Array<FloatNum> {
 }
 
 fn output_csv(mlups: Vec<f32>) -> Result<(), Box<dyn Error>> {
-  let mut wtr = Writer::from_path("d2q9_bgk_channel_mlups.csv")?;
+  let mut wtr = Writer::from_path("d2q9_bgk_channel_mlups_300_100.csv")?;
 
   wtr.write_record(&["Iterations", "MLUPS"])?;
   for (i, item) in mlups.iter().enumerate() {
@@ -36,8 +36,8 @@ fn output_csv(mlups: Vec<f32>) -> Result<(), Box<dyn Error>> {
 
 fn lbm(write_csv: bool) {
     // Grid length, number and spacing
-    let nx: u64 = 700;
-    let ny: u64 = 300;
+    let nx: u64 = 300;
+    let ny: u64 = 100;
 
     let total_nodes = nx * ny;
 
@@ -161,8 +161,8 @@ fn lbm(write_csv: bool) {
     win.grid(2, 1);
 
     let mut iter: u64 = 0;
-    let maxiter: u64 = 10000;
-    let mut mlups: Vec<FloatNum> = Vec::with_capacity(10000);
+    let maxiter: u64 = 5000;
+    let mut mlups: Vec<FloatNum> = Vec::with_capacity(5000);
 
     sync(0);
     let timer = Instant::now();
