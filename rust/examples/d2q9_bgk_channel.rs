@@ -23,7 +23,7 @@ fn stream(f: &Array<FloatNum>) -> Array<FloatNum> {
 }
 
 fn output_csv(mlups: Vec<f32>) -> Result<(), Box<dyn Error>> {
-  let mut wtr = Writer::from_path("d2q9_bgk_channel_mlups_300_100.csv")?;
+  let mut wtr = Writer::from_path("d2q9_bgk_channel_mlups.csv")?;
 
   wtr.write_record(&["Iterations", "MLUPS"])?;
   for (i, item) in mlups.iter().enumerate() {
@@ -36,8 +36,8 @@ fn output_csv(mlups: Vec<f32>) -> Result<(), Box<dyn Error>> {
 
 fn lbm(write_csv: bool) {
     // Grid length, number and spacing
-    let nx: u64 = 300;
-    let ny: u64 = 100;
+    let nx: u64 = 700;
+    let ny: u64 = 300;
 
     let total_nodes = nx * ny;
 
@@ -157,19 +157,19 @@ fn lbm(write_csv: bool) {
             - (1.5 as FloatNum) * (&tile(&flat(&u_sq), dim4!(9))));
 
     // Create a window to show the waves.
-    let mut win = Window::new(1536, 768, "LBM solver using ArrayFire".to_string());
-    win.grid(2, 1);
+    // let mut win = Window::new(1536, 768, "LBM solver using ArrayFire".to_string());
+    // win.grid(2, 1);
 
     let mut iter: u64 = 0;
-    let maxiter: u64 = 5000;
-    let mut mlups: Vec<FloatNum> = Vec::with_capacity(5000);
+    let maxiter: u64 = 10000;
+    let mut mlups: Vec<FloatNum> = Vec::with_capacity(10000);
 
     sync(0);
     let timer = Instant::now();
 
     mem_info!("Before benchmark");
 
-    while !win.is_closed() && iter < maxiter {
+    while iter < maxiter {
         // Streaming by reading from neighbors (with pre-built index) - pull scheme
         let f_streamed = view!(f[nb_index]);
 
