@@ -203,7 +203,7 @@ fn lbm() {
         eval!(f[reflected] = bouncedback);
 
         // Visualization
-        // if iter % 10 == 0 {
+        if iter % 10 == 0 {
             let mut uu = moddims(&sqrt(&u_sq), dims);
             eval!(uu[on] = constant::<FloatNum>(FloatNum::NAN, on.dims()));
 
@@ -211,7 +211,7 @@ fn lbm() {
             let filter_y = seq!(0, ny as i32 - 1, ny as i32 / 20);
 
             win.set_view(0, 0);
-            win.set_colormap(ColorMap::SPECTRUM);
+            win.set_colormap(ColorMap::COLORS);
             win.draw_image(
                 &transpose(&normalize(&uu), false),
                 Some(format!("XY domain in iteration {}", &iter).to_string()),
@@ -228,7 +228,7 @@ fn lbm() {
             );
 
             win.show();
-        // }
+        }
 
         sync(0);
         let time = timer.elapsed().as_secs() as FloatNum;
