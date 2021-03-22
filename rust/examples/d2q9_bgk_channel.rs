@@ -211,7 +211,7 @@ fn lbm() {
             let filter_y = seq!(0, ny as i32 - 1, ny as i32 / 20);
 
             win.set_view(0, 0);
-            win.set_colormap(ColorMap::SPECTRUM);
+            win.set_colormap(ColorMap::COLORS);
             win.draw_image(
                 &transpose(&normalize(&uu), false),
                 Some(format!("XY domain in iteration {}", &iter).to_string()),
