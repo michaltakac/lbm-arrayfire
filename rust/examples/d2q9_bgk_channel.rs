@@ -1,5 +1,7 @@
 use arrayfire::*;
 use std::time::Instant;
+use std::error::Error;
+use csv::Writer;
 
 type FloatNum = f32;
 
@@ -20,7 +22,19 @@ fn stream(f: &Array<FloatNum>) -> Array<FloatNum> {
     pdf
 }
 
-fn lbm() {
+fn output_csv(mlups: Vec<f32>) -> Result<(), Box<dyn Error>> {
+  let mut wtr = Writer::from_path("d2q9_bgk_channel_mlups.csv")?;
+
+  wtr.write_record(&["Iterations", "MLUPS"])?;
+  for (i, item) in mlups.iter().enumerate() {
+    wtr.write_record(&[i.to_string(), item.to_string()])?;
+  }
+
+  wtr.flush()?;
+  Ok(())
+}
+
+fn lbm(write_csv: bool) {
     // Grid length, number and spacing
     let nx: u64 = 700;
     let ny: u64 = 300;
@@ -203,49 +217,58 @@ fn lbm() {
         eval!(f[reflected] = bouncedback);
 
         // Visualization
-        if iter % 10 == 0 {
-            let mut uu = moddims(&sqrt(&u_sq), dims);
-            eval!(uu[on] = constant::<FloatNum>(FloatNum::NAN, on.dims()));
+        // if iter % 10 == 0 {
+        //     let mut uu = moddims(&sqrt(&u_sq), dims);
+        //     eval!(uu[on] = constant::<FloatNum>(FloatNum::NAN, on.dims()));
 
-            let filter_x = seq!(0, nx as i32 - 1, nx as i32 / 25);
-            let filter_y = seq!(0, ny as i32 - 1, ny as i32 / 20);
+        //     let filter_x = seq!(0, nx as i32 - 1, nx as i32 / 25);
+        //     let filter_y = seq!(0, ny as i32 - 1, ny as i32 / 20);
 
-            win.set_view(0, 0);
-            win.set_colormap(ColorMap::COLORS);
-            win.draw_image(
-                &transpose(&normalize(&uu), false),
-                Some(format!("XY domain in iteration {}", &iter).to_string()),
-            );
+        //     win.set_view(0, 0);
+        //     win.set_colormap(ColorMap::COLORS);
+        //     win.draw_image(
+        //         &transpose(&normalize(&uu), false),
+        //         Some(format!("XY domain in iteration {}", &iter).to_string()),
+        //     );
 
-            win.set_view(1, 0);
-            win.set_axes_limits_2d(0.0, nx as f32, 0.0, ny as f32, true);
-            win.draw_vector_field2(
-                &flat(&view!(x[filter_x,filter_y])),
-                &flat(&view!(y[filter_x,filter_y])),
-                &flat(&view!(ux[filter_x,filter_y])),
-                &flat(&view!(uy[filter_x,filter_y])),
-                Some(format!("Velocity field in iteration {}", &iter).to_string()),
-            );
+        //     win.set_view(1, 0);
+        //     win.set_axes_limits_2d(0.0, nx as f32, 0.0, ny as f32, true);
+        //     win.draw_vector_field2(
+        //         &flat(&view!(x[filter_x,filter_y])),
+        //         &flat(&view!(y[filter_x,filter_y])),
+        //         &flat(&view!(ux[filter_x,filter_y])),
+        //         &flat(&view!(uy[filter_x,filter_y])),
+        //         Some(format!("Velocity field in iteration {}", &iter).to_string()),
+        //     );
 
-            win.show();
-        }
+        //     win.show();
+        // }
 
-        sync(0);
         let time = timer.elapsed().as_secs() as FloatNum;
-        mlups.push((total_nodes as FloatNum * iter as FloatNum * 10e-6) / time);
+        let updates = (total_nodes as FloatNum * iter as FloatNum * 10e-6) / time;
+
+        if !updates.is_nan() && !updates.is_infinite() {
+          mlups.push(updates);
+        }
 
         if iter % 100 == 0 {
             println!(
                 "{} iterations completed, {}s elapsed ({} MLUPS).",
-                iter, time, mlups[iter as usize]
+                iter, time, updates
             );
         }
 
         iter += 1;
+        sync(0);
     }
 
-    sync(0);
     mem_info!("After benchmark");
+    sync(0);
+
+    // output CSV of MLUPS data
+    if write_csv {
+      output_csv(mlups);
+    }
 }
 
 fn main() {
@@ -253,5 +276,6 @@ fn main() {
     set_backend(Backend::OPENCL);
     info();
     println!("LBM D2Q9 simulation\n");
-    lbm();
+    let write_csv = true;
+    lbm(write_csv);
 }
