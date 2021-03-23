@@ -22,8 +22,8 @@ fn stream(f: &Array<FloatNum>) -> Array<FloatNum> {
     pdf
 }
 
-fn output_csv(mlups: Vec<f32>) -> Result<(), Box<dyn Error>> {
-  let mut wtr = Writer::from_path("d2q9_bgk_lid_mlups_new.csv")?;
+fn output_csv(mlups: Vec<FloatNum>) -> Result<(), Box<dyn Error>> {
+  let mut wtr = Writer::from_path("d2q9_bgk_lid_mlups.csv")?;
 
   wtr.write_record(&["Iterations", "MLUPS"])?;
   for (i, item) in mlups.iter().enumerate() {
@@ -217,7 +217,7 @@ fn lbm(write_csv: bool) {
         //     win.show();
         // }
 
-        let time = timer.elapsed().as_secs() as FloatNum;
+        let time = timer.elapsed().as_secs_f32();
         let updates = (total_nodes as FloatNum * iter as FloatNum * 10e-6) / time;
 
         if !updates.is_nan() && !updates.is_infinite() {

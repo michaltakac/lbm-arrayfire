@@ -3,7 +3,7 @@ use std::time::Instant;
 use std::error::Error;
 use csv::Writer;
 
-type FloatNum = f32;
+type FloatNum = f64;
 
 fn normalize(a: &Array<FloatNum>) -> Array<FloatNum> {
     (a / (max_all(&abs(a)).0 * 1.1 as FloatNum)) + 0.1 as FloatNum
@@ -22,8 +22,8 @@ fn stream(f: &Array<FloatNum>) -> Array<FloatNum> {
     pdf
 }
 
-fn output_csv(mlups: Vec<f32>) -> Result<(), Box<dyn Error>> {
-  let mut wtr = Writer::from_path("d2q9_bgk_channel_mlups.csv")?;
+fn output_csv(mlups: Vec<FloatNum>) -> Result<(), Box<dyn Error>> {
+  let mut wtr = Writer::from_path("rtx3090_64bit_d2q9_bgk_channel_mlups_6000_2000.csv")?;
 
   wtr.write_record(&["Iterations", "MLUPS"])?;
   for (i, item) in mlups.iter().enumerate() {
@@ -36,8 +36,8 @@ fn output_csv(mlups: Vec<f32>) -> Result<(), Box<dyn Error>> {
 
 fn lbm(write_csv: bool) {
     // Grid length, number and spacing
-    let nx: u64 = 700;
-    let ny: u64 = 300;
+    let nx: u64 = 6000;
+    let ny: u64 = 2000;
 
     let total_nodes = nx * ny;
 
@@ -244,7 +244,7 @@ fn lbm(write_csv: bool) {
         //     win.show();
         // }
 
-        let time = timer.elapsed().as_secs() as FloatNum;
+        let time = timer.elapsed().as_secs_f64();
         let updates = (total_nodes as FloatNum * iter as FloatNum * 10e-6) / time;
 
         if !updates.is_nan() && !updates.is_infinite() {
