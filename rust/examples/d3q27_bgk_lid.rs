@@ -61,20 +61,20 @@ fn output_csv(mlups: Vec<f32>) -> Result<(), Box<dyn Error>> {
 
 fn lbm(write_csv: bool) {
     // Grid length, number and spacing
-    let nx: u64 = 100;
-    let ny: u64 = 100;
-    let nz: u64 = 100;
+    let nx: u64 = 64;
+    let ny: u64 = 64;
+    let nz: u64 = 64;
 
     let total_nodes = nx * ny * nz;
 
     // Physical parameters.
-    let ux_lid: FloatNum = 0.05; // horizontal lid velocity
+    let ux_lid: FloatNum = 0.1; // horizontal lid velocity
     let uy_lid: FloatNum = 0.0; // vertical lid velocity
     let uz_lid: FloatNum = 0.0; // lid velocity in z-direction
     let rho0: FloatNum = 1.0;
 
     // Reynolds number
-    let re: FloatNum = 100.0;
+    let re: FloatNum = 150.0;
     // Kinematic viscosity
     let nu: FloatNum = ux_lid * nx as FloatNum / re;
     // Relaxation time
@@ -94,7 +94,7 @@ fn lbm(write_csv: bool) {
     let t3: FloatNum = 1. / 54.;
     let t4: FloatNum = 1. / 216.;
 
-    let x: Array<FloatNum> = tile(&range(dim4!(nx), 1), dim4!(ny * nz));
+    let x: Array<FloatNum> = tile(&range(dim4!(nx), 1), dim4!(1, ny * nz));
     let y: Array<FloatNum> = tile(&range(dim4!(1, ny), 1), dim4!(nx, nz));
     let z: Array<FloatNum> = tile(&range(dim4!(1, nz), 1), dim4!(nx, ny));
 
@@ -110,15 +110,16 @@ fn lbm(write_csv: bool) {
     let end_y = seq!(nx as i32 - 1, ny as i32 - 1, 1);
 
     // Discrete velocities
-    let ex = Array::<FloatNum>::new(&[0., 1., 0., -1., 0., 1., -1., -1., 1.], dim4!(27));
-    let ey = Array::<FloatNum>::new(&[0., 0., 1., 0., -1., 1., 1., -1., -1.], dim4!(27));
-    let ez = Array::<FloatNum>::new(&[0., 0., 1., 0., -1., 1., 1., -1., -1.], dim4!(27));
+    let ex = Array::<FloatNum>::new(&[0., 1.,-1., 0., 0., 0., 0., 1.,-1., 1.,-1., 1.,-1., 1.,-1., 0., 0., 0., 0., 1.,-1., 1.,-1., 1.,-1., 1.,-1.], dim4!(27));
+    let ey = Array::<FloatNum>::new(&[0., 0., 0., 1.,-1., 0., 0., 1., 1.,-1.,-1., 0., 0., 0., 0., 1.,-1., 1.,-1., 1., 1.,-1.,-1., 1., 1.,-1.,-1.], dim4!(27));
+    let ez = Array::<FloatNum>::new(&[0., 0., 0., 0., 0., 1.,-1., 0., 0., 0., 0., 1., 1.,-1.,-1., 1., 1.,-1.,-1., 1., 1., 1., 1.,-1.,-1.,-1.,-1.], dim4!(27));
 
     // weights
     let w = Array::new(&[t1,t2,t2,t2,t2,t2,t2,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t4,t4,t4,t4,t4,t4,t4,t4], dim4!(27));
 
     let ci: Array<u64> = (range::<u64>(dim4!(1, 26), 1) + 1) * total_nodes;
-    let nbidx = Array::new(&[1,0,3,2,5,4,9,8,7,6,13,12,11,10,17,16,15,14,25,24,23,22,21,20,19,18], dim4!(26));
+                                          // 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
+    let nbidx = Array::new(&[1,0,3,2,5,4,9,8,7, 6,13,12,11,10,17,16,15,14,25,24,23,22,21,20,19,18], dim4!(26));
     let nbi: Array<u64> = view!(ci[span, nbidx]);
 
     let main_index = moddims(&range(dim4!(total_nodes * 27), 0), dim4!(nx, ny, nz, 27));
@@ -156,7 +157,7 @@ fn lbm(write_csv: bool) {
     let mut eu: Array<FloatNum> = flat(
         &(&mul(&transpose(&ex, false), &flat(&ux), true)
             + &mul(&transpose(&ey, false), &flat(&uy), true)
-            + &mul(&transpose(&ez, false), &flat(&uy), true)),
+            + &mul(&transpose(&ez, false), &flat(&uz), true)),
     );
     let mut f: Array<FloatNum> = flat(&mul(&transpose(&w, false), &flat(&density), true))
         * ((1.0 as FloatNum)
@@ -165,8 +166,8 @@ fn lbm(write_csv: bool) {
             - (1.5 as FloatNum) * (&tile(&flat(&u_sq), dim4!(27))));
 
     // Create a window to show the waves.
-    // let mut win = Window::new(1536, 768, "LBM solver using ArrayFire".to_string());
-    // win.grid(2, 2);
+    let mut win = Window::new(1536, 768, "LBM solver using ArrayFire".to_string());
+    win.grid(2, 2);
 
     let mut iter: u64 = 0;
     let maxiter: u64 = 5000;
@@ -177,7 +178,7 @@ fn lbm(write_csv: bool) {
 
     mem_info!("Before benchmark");
 
-    while iter < maxiter {
+    while !win.is_closed() && iter < maxiter {
         // Streaming by reading from neighbors (with pre-built index) - pull scheme
         let f_streamed = view!(f[nb_index]);
 
@@ -212,7 +213,7 @@ fn lbm(write_csv: bool) {
         eu = flat(
             &(&mul(&transpose(&ex, false), &flat(&ux), true)
                 + &mul(&transpose(&ey, false), &flat(&uy), true)
-                + &mul(&transpose(&ez, false), &flat(&uy), true)),
+                + &mul(&transpose(&ez, false), &flat(&uz), true)),
         );
         let feq = flat(&mul(&transpose(&w, false), &flat(&density), true))
             * ((1.0 as FloatNum)
@@ -225,41 +226,41 @@ fn lbm(write_csv: bool) {
         eval!(f[reflected] = bouncedback);
 
         // Visualization
-        // if iter % 10 == 0 {
-        //     let mut uu = moddims(&sqrt(&u_sq), dims);
-        //     eval!(uu[on] = constant::<FloatNum>(FloatNum::NAN, on.dims()));
+        if iter % 10 == 0 {
+            let mut uu = moddims(&sqrt(&u_sq), dims);
+            eval!(uu[on] = constant::<FloatNum>(FloatNum::NAN, on.dims()));
 
-        //     let filter = seq!(0, nx as i32 - 1, nx as i32 / 30);
-        //     let z_section = seq!(nz as i32 / 2, nz as i32 / 2, 1);
+            let filter = seq!(0, nx as i32 - 1, nx as i32 / 30);
+            let z_section = seq!(nz as i32 / 2, nz as i32 / 2, 1);
 
-        //     let xy_view = index(&reorder_v2(&normalize(&uu), 1, 0, Some(vec![2])), &[span, span, z_section]);
+            let xy_view = index(&reorder_v2(&normalize(&uu), 1, 0, Some(vec![2])), &[span, span, z_section]);
 
-        //     win.set_view(0, 0);
-        //     win.set_colormap(ColorMap::SPECTRUM);
-        //     win.draw_image(
-        //       &flip(&transpose(&xy_view, false), 0),
-        //       Some(format!("XY domain in iteration {}", &iter).to_string()),
-        //     );
+            win.set_view(0, 0);
+            win.set_colormap(ColorMap::SPECTRUM);
+            win.draw_image(
+              &flip(&transpose(&xy_view, false), 0),
+              Some(format!("XY domain in iteration {}", &iter).to_string()),
+            );
 
-        //     // win.set_view(0, 1);
-        //     // win.set_axes_limits_2d(0.0, nx as f32, 0.0, ny as f32, true);
-        //     // win.draw_vector_field2(
-        //     //     &flat(&view!(x[filter,filter])),
-        //     //     &flat(&view!(y[filter,filter])),
-        //     //     &flat(&view!(ux[filter,filter,z_section])),
-        //     //     &flat(&view!(uy[filter,filter,z_section])),
-        //     //     Some(format!("Velocity field in iteration {}", &iter).to_string()),
-        //     // );
+            win.set_view(0, 1);
+            win.set_axes_limits_2d(0.0f32, nx as f32, 0.0f32, ny as f32, true);
+            win.draw_vector_field2(
+                &flat(&view!(x[filter,filter])),
+                &flat(&view!(y[filter,filter])),
+                &flat(&view!(ux[filter,filter,z_section])),
+                &flat(&view!(uy[filter,filter,z_section])),
+                Some(format!("Velocity field in iteration {}", &iter).to_string()),
+            );
 
-        //     win.set_view(1, 0);
-        //     win.set_colormap(ColorMap::SPECTRUM);
-        //     win.draw_image(
-        //       &normalize(&index(&uu, &[span, span, z_section])),
-        //       Some(format!("XY domain in iteration {}", &iter).to_string()),
-        //     );
+            win.set_view(1, 0);
+            win.set_colormap(ColorMap::SPECTRUM);
+            win.draw_image(
+              &normalize(&index(&uu, &[span, span, z_section])),
+              Some(format!("XY domain in iteration {}", &iter).to_string()),
+            );
 
-        //     win.show();
-        // }
+            win.show();
+        }
 
         let time = timer.elapsed().as_secs() as FloatNum;
         let updates = (total_nodes as FloatNum * iter as FloatNum * 10e-6) / time;
@@ -292,7 +293,7 @@ fn main() {
     set_device(0);
     set_backend(Backend::OPENCL);
     info();
-    println!("LBM D2Q9 simulation\n");
-    let write_csv = true;
+    println!("LBM D3Q27 simulation\n");
+    let write_csv = false;
     lbm(write_csv);
 }
