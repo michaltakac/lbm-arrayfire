@@ -61,9 +61,9 @@ fn output_csv(mlups: Vec<f32>) -> Result<(), Box<dyn Error>> {
 
 fn lbm(write_csv: bool) {
     // Grid length, number and spacing
-    let nx: u64 = 32;
-    let ny: u64 = 32;
-    let nz: u64 = 32;
+    let nx: u64 = 100;
+    let ny: u64 = 100;
+    let nz: u64 = 100;
 
     let total_nodes = nx * ny * nz;
 
@@ -74,27 +74,6 @@ fn lbm(write_csv: bool) {
     let rho0: FloatNum = 1.0;
 
     let dt: FloatNum = 1.0;
-
-    // Reynolds number
-    let re: FloatNum = 150.0;
-    // Kinematic viscosity
-    let nu: FloatNum = ux_lid * nx as FloatNum / re;
-    // Relaxation time
-    let tau: FloatNum = (3.0 as FloatNum) * nu + (0.5 as FloatNum);
-    // Relaxation parameter
-    let omega: FloatNum = (1.0 as FloatNum) / tau;
-
-    println!("Horizontal lid velocity ux_lid: {}", ux_lid);
-    println!("Vertical lid velocity uy_lid: {}", uy_lid);
-    println!("Reynolds number: {}", re);
-    println!("Lattice viscosity: {}", nu);
-    println!("Relaxation time: {}", tau);
-    println!("Relaxation parameter: {}", omega);
-
-    let t1: FloatNum = 8. / 27.;
-    let t2: FloatNum = 2. / 27.;
-    let t3: FloatNum = 1. / 54.;
-    let t4: FloatNum = 1. / 216.;
     let c_squ: FloatNum = 1. / 3.;
 
     let x: Array<FloatNum> = tile(&range(dim4!(nx), 1), dim4!(1, ny * nz));
@@ -116,9 +95,6 @@ fn lbm(write_csv: bool) {
     let ex = Array::<FloatNum>::new(&[0., 1.,-1., 0., 0., 0., 0., 1.,-1., 1.,-1., 1.,-1., 1.,-1., 0., 0., 0., 0., 1.,-1., 1.,-1., 1.,-1., 1.,-1.], dim4!(27));
     let ey = Array::<FloatNum>::new(&[0., 0., 0., 1.,-1., 0., 0., 1., 1.,-1.,-1., 0., 0., 0., 0., 1.,-1., 1.,-1., 1., 1.,-1.,-1., 1., 1.,-1.,-1.], dim4!(27));
     let ez = Array::<FloatNum>::new(&[0., 0., 0., 0., 0., 1.,-1., 0., 0., 0., 0., 1., 1.,-1.,-1., 1., 1.,-1.,-1., 1., 1., 1., 1.,-1.,-1.,-1.,-1.], dim4!(27));
-
-    // weights
-    let w = Array::new(&[t1,t2,t2,t2,t2,t2,t2,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t4,t4,t4,t4,t4,t4,t4,t4], dim4!(27));
 
     let ci: Array<u64> = (range::<u64>(dim4!(1, 26), 1) + 1) * total_nodes;
                                           // 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
@@ -173,6 +149,7 @@ fn lbm(write_csv: bool) {
     let s = diag_create(&relax_params, 0);
     // let s = diag_create(&constant(omega, dim4!(27)), 0); // = BGK, or
     // let s = diag_create(&constant(1.2f32, dim4!(27)), 0); // = SRT set to constant
+    let s_t = transpose(&s, false);
 
     // Kinetic viscosity
     let nu = (1.0 as FloatNum / sv - 0.5 as FloatNum) * c_squ * dt;
@@ -215,6 +192,9 @@ fn lbm(write_csv: bool) {
     // IM = M^-1
     let tm_inv = inverse(&tm, MatProp::NONE);
 
+    let tm_t = transpose(&tm, false);
+    let tm_inv_t = transpose(&tm_inv, false);
+
     // Open lid 3D
     let mut bound = constant::<FloatNum>(1.0, dims);
     let zeros = constant::<FloatNum>(0.0, dims);
@@ -242,11 +222,11 @@ fn lbm(write_csv: bool) {
     let zeroed_on = constant::<FloatNum>(0.0, on.dims());
 
     // Particle distribution function in initial equilibrium state
-    let mut f = constant(rho0/27. as FloatNum, dim4!(27, total_nodes));
+    let mut f = constant(rho0/27. as FloatNum, dim4!(total_nodes, 27));
     /*
     * MOMENTS
     */
-    let moments = matmul(&tm, &f, MatProp::NONE, MatProp::NONE);
+    let moments = matmul(&f, &tm_t, MatProp::NONE, MatProp::NONE);
 
     let cs_2 = c_squ;
     let cs_4 = c_squ * c_squ;
@@ -270,39 +250,38 @@ fn lbm(write_csv: bool) {
     /*
     * EQUILIBRIUM MOMENTS
     */
-    let mut meq = constant(0.0 as FloatNum, dim4!(27, total_nodes));
-    set_row(&mut meq, &rho_1d, 0);
-    set_row(&mut meq, &rho_vx, 1);
-    set_row(&mut meq, &rho_vy, 2);
-    set_row(&mut meq, &rho_vz, 3);
-    set_row(&mut meq, &(&rho_vx * &uy_1d), 4);
-    set_row(&mut meq, &(&rho_vx * &uz_1d), 5);
-    set_row(&mut meq, &(&rho_vy * &uz_1d), 6);
-    set_row(&mut meq, &(&rho_1d + &rho_vx * &ux_1d + &rho_vy * &uy_1d + &rho_vz * &uz_1d), 7);
-    set_row(&mut meq, &(&rho_1d * (&v_x_sq - &v_y_sq)), 8);
-    set_row(&mut meq, &(&rho_1d * (&v_x_sq - &v_z_sq)), 9);
-    set_row(&mut meq, &(&rho_cs_2 * &ux_1d), 10);
-    set_row(&mut meq, &(&rho_cs_2 * &ux_1d), 11);
-    set_row(&mut meq, &(&rho_cs_2 * &uy_1d), 12);
-    set_row(&mut meq, &(&rho_cs_2 * &uz_1d), 13);
-    set_row(&mut meq, &(&rho_cs_2 * &uy_1d), 14);
-    set_row(&mut meq, &(&rho_cs_2 * &uz_1d), 15);
-    // row 16 already initialized to zero
-    set_row(&mut meq, &(&rho_cs_2 * (cs_2 + &v_x_sq + &v_y_sq)), 17);
-    set_row(&mut meq, &(&rho_cs_2 * (cs_2 + &v_x_sq + &v_z_sq)), 18);
-    set_row(&mut meq, &(&rho_cs_2 * (cs_2 + &v_y_sq + &v_z_sq)), 19);
-    set_row(&mut meq, &(&rho_cs_2 * &uy_1d * &uz_1d), 20);
-    set_row(&mut meq, &(&rho_cs_2 * &ux_1d * &uz_1d), 21);
-    set_row(&mut meq, &(&rho_cs_2 * &ux_1d * &uy_1d), 22);
-    set_row(&mut meq, &(&rho_cs_4 * &ux_1d), 23);
-    set_row(&mut meq, &(&rho_cs_4 * &uy_1d), 24);
-    set_row(&mut meq, &(&rho_cs_4 * &uz_1d), 25);
-    set_row(&mut meq, &(&v_sq + &rho_cs_6), 26);
+    let mut meq = constant(0.0 as FloatNum, dim4!(total_nodes, 27));
+    set_col(&mut meq, &rho_1d, 0);
+    set_col(&mut meq, &rho_vx, 1);
+    set_col(&mut meq, &rho_vy, 2);
+    set_col(&mut meq, &rho_vz, 3);
+    set_col(&mut meq, &(&rho_vx * &uy_1d), 4);
+    set_col(&mut meq, &(&rho_vx * &uz_1d), 5);
+    set_col(&mut meq, &(&rho_vy * &uz_1d), 6);
+    set_col(&mut meq, &(&rho_1d + &rho_vx * &ux_1d + &rho_vy * &uy_1d + &rho_vz * &uz_1d), 7);
+    set_col(&mut meq, &(&rho_1d * (&v_x_sq - &v_y_sq)), 8);
+    set_col(&mut meq, &(&rho_1d * (&v_x_sq - &v_z_sq)), 9);
+    set_col(&mut meq, &(&rho_cs_2 * &ux_1d), 10);
+    set_col(&mut meq, &(&rho_cs_2 * &ux_1d), 11);
+    set_col(&mut meq, &(&rho_cs_2 * &uy_1d), 12);
+    set_col(&mut meq, &(&rho_cs_2 * &uz_1d), 13);
+    set_col(&mut meq, &(&rho_cs_2 * &uy_1d), 14);
+    set_col(&mut meq, &(&rho_cs_2 * &uz_1d), 15);
+    // col 16 already initialized to zero
+    set_col(&mut meq, &(&rho_cs_2 * (cs_2 + &v_x_sq + &v_y_sq)), 17);
+    set_col(&mut meq, &(&rho_cs_2 * (cs_2 + &v_x_sq + &v_z_sq)), 18);
+    set_col(&mut meq, &(&rho_cs_2 * (cs_2 + &v_y_sq + &v_z_sq)), 19);
+    set_col(&mut meq, &(&rho_cs_2 * &uy_1d * &uz_1d), 20);
+    set_col(&mut meq, &(&rho_cs_2 * &ux_1d * &uz_1d), 21);
+    set_col(&mut meq, &(&rho_cs_2 * &ux_1d * &uy_1d), 22);
+    set_col(&mut meq, &(&rho_cs_4 * &ux_1d), 23);
+    set_col(&mut meq, &(&rho_cs_4 * &uy_1d), 24);
+    set_col(&mut meq, &(&rho_cs_4 * &uz_1d), 25);
+    set_col(&mut meq, &(&v_sq + &rho_cs_6), 26);
 
-    let relaxation_part = matmul(&s, &(&moments - &meq), MatProp::NONE, MatProp::NONE);
+    let relaxation_part = matmul(&(&moments - &meq), &s_t, MatProp::NONE, MatProp::NONE);
     let collided_moments = &moments - &relaxation_part;
-    let f_postcol = matmul(&tm_inv, &collided_moments, MatProp::NONE, MatProp::NONE);
-    f = transpose(&f_postcol, false);
+    f = matmul(&collided_moments, &tm_inv_t, MatProp::NONE, MatProp::NONE);
 
     // Create a window to show the waves.
     let mut win = Window::new(1536, 768, "LBM solver using ArrayFire".to_string());
@@ -370,38 +349,37 @@ fn lbm(write_csv: bool) {
         /*
         * EQUILIBRIUM MOMENTS
         */
-        set_row(&mut meq, &rho_1d, 0);
-        set_row(&mut meq, &rho_vx, 1);
-        set_row(&mut meq, &rho_vy, 2);
-        set_row(&mut meq, &rho_vz, 3);
-        set_row(&mut meq, &(&rho_vx * &uy_1d), 4);
-        set_row(&mut meq, &(&rho_vx * &uz_1d), 5);
-        set_row(&mut meq, &(&rho_vy * &uz_1d), 6);
-        set_row(&mut meq, &(&rho_1d + &rho_vx * &ux_1d + &rho_vy * &uy_1d + &rho_vz * &uz_1d), 7);
-        set_row(&mut meq, &(&rho_1d * (&v_x_sq - &v_y_sq)), 8);
-        set_row(&mut meq, &(&rho_1d * (&v_x_sq - &v_z_sq)), 9);
-        set_row(&mut meq, &(&rho_cs_2 * &ux_1d), 10);
-        set_row(&mut meq, &(&rho_cs_2 * &ux_1d), 11);
-        set_row(&mut meq, &(&rho_cs_2 * &uy_1d), 12);
-        set_row(&mut meq, &(&rho_cs_2 * &uz_1d), 13);
-        set_row(&mut meq, &(&rho_cs_2 * &uy_1d), 14);
-        set_row(&mut meq, &(&rho_cs_2 * &uz_1d), 15);
-        // row 16 already initialized to zero
-        set_row(&mut meq, &(&rho_cs_2 * (cs_2 + &v_x_sq + &v_y_sq)), 17);
-        set_row(&mut meq, &(&rho_cs_2 * (cs_2 + &v_x_sq + &v_z_sq)), 18);
-        set_row(&mut meq, &(&rho_cs_2 * (cs_2 + &v_y_sq + &v_z_sq)), 19);
-        set_row(&mut meq, &(&rho_cs_2 * &uy_1d * &uz_1d), 20);
-        set_row(&mut meq, &(&rho_cs_2 * &ux_1d * &uz_1d), 21);
-        set_row(&mut meq, &(&rho_cs_2 * &ux_1d * &uy_1d), 22);
-        set_row(&mut meq, &(&rho_cs_4 * &ux_1d), 23);
-        set_row(&mut meq, &(&rho_cs_4 * &uy_1d), 24);
-        set_row(&mut meq, &(&rho_cs_4 * &uz_1d), 25);
-        set_row(&mut meq, &(&v_sq + &rho_cs_6), 26);
+        set_col(&mut meq, &rho_1d, 0);
+        set_col(&mut meq, &rho_vx, 1);
+        set_col(&mut meq, &rho_vy, 2);
+        set_col(&mut meq, &rho_vz, 3);
+        set_col(&mut meq, &(&rho_vx * &uy_1d), 4);
+        set_col(&mut meq, &(&rho_vx * &uz_1d), 5);
+        set_col(&mut meq, &(&rho_vy * &uz_1d), 6);
+        set_col(&mut meq, &(&rho_1d + &rho_vx * &ux_1d + &rho_vy * &uy_1d + &rho_vz * &uz_1d), 7);
+        set_col(&mut meq, &(&rho_1d * (&v_x_sq - &v_y_sq)), 8);
+        set_col(&mut meq, &(&rho_1d * (&v_x_sq - &v_z_sq)), 9);
+        set_col(&mut meq, &(&rho_cs_2 * &ux_1d), 10);
+        set_col(&mut meq, &(&rho_cs_2 * &ux_1d), 11);
+        set_col(&mut meq, &(&rho_cs_2 * &uy_1d), 12);
+        set_col(&mut meq, &(&rho_cs_2 * &uz_1d), 13);
+        set_col(&mut meq, &(&rho_cs_2 * &uy_1d), 14);
+        set_col(&mut meq, &(&rho_cs_2 * &uz_1d), 15);
+        // col 16 already initialized to zero
+        set_col(&mut meq, &(&rho_cs_2 * (cs_2 + &v_x_sq + &v_y_sq)), 17);
+        set_col(&mut meq, &(&rho_cs_2 * (cs_2 + &v_x_sq + &v_z_sq)), 18);
+        set_col(&mut meq, &(&rho_cs_2 * (cs_2 + &v_y_sq + &v_z_sq)), 19);
+        set_col(&mut meq, &(&rho_cs_2 * &uy_1d * &uz_1d), 20);
+        set_col(&mut meq, &(&rho_cs_2 * &ux_1d * &uz_1d), 21);
+        set_col(&mut meq, &(&rho_cs_2 * &ux_1d * &uy_1d), 22);
+        set_col(&mut meq, &(&rho_cs_4 * &ux_1d), 23);
+        set_col(&mut meq, &(&rho_cs_4 * &uy_1d), 24);
+        set_col(&mut meq, &(&rho_cs_4 * &uz_1d), 25);
+        set_col(&mut meq, &(&v_sq + &rho_cs_6), 26);
 
-        let relaxation_part = matmul(&s, &(&moments - &meq), MatProp::NONE, MatProp::NONE);
+        let relaxation_part = matmul(&(&moments - &meq), &s_t, MatProp::NONE, MatProp::NONE);
         let collided_moments = &moments - &relaxation_part;
-        let f_postcol = matmul(&tm_inv, &collided_moments, MatProp::NONE, MatProp::NONE);
-        f = transpose(&f_postcol, false);
+        f = matmul(&collided_moments, &tm_inv_t, MatProp::NONE, MatProp::NONE);
 
         eval!(f[reflected] = bouncedback);
 
@@ -442,7 +420,7 @@ fn lbm(write_csv: bool) {
             win.show();
         }
 
-        let time = timer.elapsed().as_secs() as FloatNum;
+        let time = timer.elapsed().as_secs_f32();
         let updates = (total_nodes as FloatNum * iter as FloatNum * 10e-6) / time;
 
         if !updates.is_nan() && !updates.is_infinite() {

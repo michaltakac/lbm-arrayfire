@@ -68,10 +68,6 @@ static void lbm()
   const float uz_lid = 0;
   const float rho0 = 1.0;
 
-  const float t1 = 8. / 27.;
-  const float t2 = 2. / 27.;
-  const float t3 = 1. / 54.;
-  const float t4 = 1. / 216.;
   const float c_squ = 1. / 3.;
 
   array x = tile(range(nx), 1, ny * nz);
@@ -87,10 +83,6 @@ static void lbm()
   array ex(27, cx);
   array ey(27, cy);
   array ez(27, cz);
-
-  // weights
-  float weights[27] = {t1,t2,t2,t2,t2,t2,t2,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t4,t4,t4,t4,t4,t4,t4,t4};
-  array w(27, weights);
 
   array CI = (range(dim4(1, 26), 1) + 1) * total_nodes;
                                 // 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26

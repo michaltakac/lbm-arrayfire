@@ -61,9 +61,9 @@ fn output_csv(mlups: Vec<f32>) -> Result<(), Box<dyn Error>> {
 
 fn lbm(write_csv: bool) {
     // Grid length, number and spacing
-    let nx: u64 = 64;
-    let ny: u64 = 64;
-    let nz: u64 = 64;
+    let nx: u64 = 100;
+    let ny: u64 = 100;
+    let nz: u64 = 100;
 
     let total_nodes = nx * ny * nz;
 
@@ -262,7 +262,7 @@ fn lbm(write_csv: bool) {
             win.show();
         }
 
-        let time = timer.elapsed().as_secs() as FloatNum;
+        let time = timer.elapsed().as_secs_f32();
         let updates = (total_nodes as FloatNum * iter as FloatNum * 10e-6) / time;
 
         if !updates.is_nan() && !updates.is_infinite() {
