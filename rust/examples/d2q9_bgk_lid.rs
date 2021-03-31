@@ -22,8 +22,8 @@ fn stream(f: &Array<FloatNum>) -> Array<FloatNum> {
     pdf
 }
 
-fn output_csv(mlups: Vec<FloatNum>) -> Result<(), Box<dyn Error>> {
-  let mut wtr = Writer::from_path("d2q9_bgk_lid_mlups.csv")?;
+fn output_csv(mlups: Vec<FloatNum>, size: u64) -> Result<(), Box<dyn Error>> {
+  let mut wtr = Writer::from_path(format!("d2q9_bgk_lid_mlups_{}.csv",size))?;
 
   wtr.write_record(&["Iterations", "MLUPS"])?;
   for (i, item) in mlups.iter().enumerate() {
@@ -34,10 +34,10 @@ fn output_csv(mlups: Vec<FloatNum>) -> Result<(), Box<dyn Error>> {
   Ok(())
 }
 
-fn lbm(write_csv: bool) {
+fn lbm(write_csv: bool, size: u64) {
     // Grid length, number and spacing
-    let nx: u64 = 256;
-    let ny: u64 = 256;
+    let nx: u64 = size;
+    let ny: u64 = size;
 
     let total_nodes = nx * ny;
 
@@ -240,15 +240,18 @@ fn lbm(write_csv: bool) {
 
     // output CSV of MLUPS data
     if write_csv {
-      output_csv(mlups);
+      output_csv(mlups, nx);
     }
 }
 
 fn main() {
-    set_device(0);
     set_backend(Backend::OPENCL);
+    set_device(0);
     info();
     println!("LBM D2Q9 simulation\n");
     let write_csv = true;
-    lbm(write_csv);
+    let sizes = vec!(64u64, 128, 256, 512, 1024, 2048, 4096);
+    for s in 0..sizes.len() {
+        lbm(write_csv, sizes[s]);
+    }
 }
