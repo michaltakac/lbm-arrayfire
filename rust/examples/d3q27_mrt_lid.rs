@@ -47,8 +47,8 @@ fn stream(f: &Array<FloatNum>) -> Array<FloatNum> {
     pdf
 }
 
-fn output_csv(mlups: Vec<f32>) -> Result<(), Box<dyn Error>> {
-  let mut wtr = Writer::from_path("d3q27_mrt_lid_mlups.csv")?;
+fn output_csv(mlups: Vec<f32>, size: u64) -> Result<(), Box<dyn Error>> {
+  let mut wtr = Writer::from_path(format!("benchmarks/GPU_NAME_d3q27_mrt_lid_mlups_{}.csv", size))?;
 
   wtr.write_record(&["Iterations", "MLUPS"])?;
   for (i, item) in mlups.iter().enumerate() {
@@ -61,9 +61,9 @@ fn output_csv(mlups: Vec<f32>) -> Result<(), Box<dyn Error>> {
 
 fn lbm(write_csv: bool) {
     // Grid length, number and spacing
-    let nx: u64 = 100;
-    let ny: u64 = 100;
-    let nz: u64 = 100;
+    let nx: u64 = 64;
+    let ny: u64 = 64;
+    let nz: u64 = 64;
 
     let total_nodes = nx * ny * nz;
 
@@ -226,7 +226,7 @@ fn lbm(write_csv: bool) {
     /*
     * MOMENTS
     */
-    let moments = matmul(&f, &tm_t, MatProp::NONE, MatProp::NONE);
+    let mut m = matmul(&f, &tm_t, MatProp::NONE, MatProp::NONE);
 
     let cs_2 = c_squ;
     let cs_4 = c_squ * c_squ;
@@ -279,8 +279,8 @@ fn lbm(write_csv: bool) {
     set_col(&mut meq, &(&rho_cs_4 * &uz_1d), 25);
     set_col(&mut meq, &(&v_sq + &rho_cs_6), 26);
 
-    let relaxation_part = matmul(&(&moments - &meq), &s_t, MatProp::NONE, MatProp::NONE);
-    let collided_moments = &moments - &relaxation_part;
+    let relaxation_part = matmul(&(&m - &meq), &s_t, MatProp::NONE, MatProp::NONE);
+    let collided_moments = &m - &relaxation_part;
     f = matmul(&collided_moments, &tm_inv_t, MatProp::NONE, MatProp::NONE);
 
     // Create a window to show the waves.
@@ -330,6 +330,8 @@ fn lbm(write_csv: bool) {
         /*
          * MOMENTS
          */
+        m = matmul(&f_2d, &tm_t, MatProp::NONE, MatProp::NONE);
+
         ux_1d = flat(&ux);
         uy_1d = flat(&uy);
         uz_1d = flat(&uz);
@@ -377,8 +379,8 @@ fn lbm(write_csv: bool) {
         set_col(&mut meq, &(&rho_cs_4 * &uz_1d), 25);
         set_col(&mut meq, &(&v_sq + &rho_cs_6), 26);
 
-        let relaxation_part = matmul(&(&moments - &meq), &s_t, MatProp::NONE, MatProp::NONE);
-        let collided_moments = &moments - &relaxation_part;
+        let relaxation_part = matmul(&(&m - &meq), &s_t, MatProp::NONE, MatProp::NONE);
+        let collided_moments = &m - &relaxation_part;
         f = matmul(&collided_moments, &tm_inv_t, MatProp::NONE, MatProp::NONE);
 
         eval!(f[reflected] = bouncedback);
@@ -443,7 +445,7 @@ fn lbm(write_csv: bool) {
 
     // output CSV of MLUPS data
     if write_csv {
-      output_csv(mlups);
+      output_csv(mlups, nx);
     }
 }
 

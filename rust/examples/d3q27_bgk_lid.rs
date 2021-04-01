@@ -47,8 +47,8 @@ fn stream(f: &Array<FloatNum>) -> Array<FloatNum> {
     pdf
 }
 
-fn output_csv(mlups: Vec<f32>) -> Result<(), Box<dyn Error>> {
-  let mut wtr = Writer::from_path("d3q27_bgk_lid_mlups.csv")?;
+fn output_csv(mlups: Vec<f32>, size: u64) -> Result<(), Box<dyn Error>> {
+  let mut wtr = Writer::from_path(format!("benchmarks/GPU_NAME_d3q27_bgk_lid_mlups_{}.csv", size))?;
 
   wtr.write_record(&["Iterations", "MLUPS"])?;
   for (i, item) in mlups.iter().enumerate() {
@@ -61,9 +61,9 @@ fn output_csv(mlups: Vec<f32>) -> Result<(), Box<dyn Error>> {
 
 fn lbm(write_csv: bool) {
     // Grid length, number and spacing
-    let nx: u64 = 100;
-    let ny: u64 = 100;
-    let nz: u64 = 100;
+    let nx: u64 = 64;
+    let ny: u64 = 64;
+    let nz: u64 = 64;
 
     let total_nodes = nx * ny * nz;
 
@@ -285,7 +285,7 @@ fn lbm(write_csv: bool) {
 
     // output CSV of MLUPS data
     if write_csv {
-      output_csv(mlups);
+      output_csv(mlups, nx);
     }
 }
 

@@ -23,7 +23,7 @@ fn stream(f: &Array<FloatNum>) -> Array<FloatNum> {
 }
 
 fn output_csv(mlups: Vec<FloatNum>, size: u64) -> Result<(), Box<dyn Error>> {
-  let mut wtr = Writer::from_path(format!("d2q9_bgk_lid_mlups_{}.csv",size))?;
+  let mut wtr = Writer::from_path(format!("benchmarks/GPU_NAME_d2q9_bgk_lid_mlups_{}.csv",size))?;
 
   wtr.write_record(&["Iterations", "MLUPS"])?;
   for (i, item) in mlups.iter().enumerate() {
@@ -34,10 +34,10 @@ fn output_csv(mlups: Vec<FloatNum>, size: u64) -> Result<(), Box<dyn Error>> {
   Ok(())
 }
 
-fn lbm(write_csv: bool, size: u64) {
+fn lbm(write_csv: bool) {
     // Grid length, number and spacing
-    let nx: u64 = size;
-    let ny: u64 = size;
+    let nx: u64 = 256;
+    let ny: u64 = 256;
 
     let total_nodes = nx * ny;
 
@@ -136,8 +136,8 @@ fn lbm(write_csv: bool, size: u64) {
             - (1.5 as FloatNum) * (&tile(&flat(&u_sq), dim4!(9))));
 
     // Create a window to show the waves.
-    // let mut win = Window::new(1536, 768, "LBM solver using ArrayFire".to_string());
-    // win.grid(1, 2);
+    let mut win = Window::new(1536, 768, "LBM solver using ArrayFire".to_string());
+    win.grid(1, 2);
 
     let mut iter: u64 = 0;
     let maxiter: u64 = 5000;
@@ -148,7 +148,7 @@ fn lbm(write_csv: bool, size: u64) {
 
     mem_info!("Before benchmark");
 
-    while iter < maxiter {
+    while !win.is_closed() && iter < maxiter {
         // Streaming by reading from neighbors (with pre-built index) - pull scheme
         let f_streamed = view!(f[nb_index]);
 
@@ -191,31 +191,31 @@ fn lbm(write_csv: bool, size: u64) {
         eval!(f[reflected] = bouncedback);
 
         // Visualization
-        // if iter % 10 == 0 {
-        //     let mut uu = moddims(&sqrt(&u_sq), dims);
-        //     eval!(uu[on] = constant::<FloatNum>(FloatNum::NAN, on.dims()));
+        if iter % 10 == 0 {
+            let mut uu = moddims(&sqrt(&u_sq), dims);
+            eval!(uu[on] = constant::<FloatNum>(FloatNum::NAN, on.dims()));
 
-        //     let filter = seq!(0, nx as i32 - 1, nx as i32 / 30);
+            let filter = seq!(0, nx as i32 - 1, nx as i32 / 30);
 
-        //     win.set_view(0, 0);
-        //     win.set_colormap(ColorMap::SPECTRUM);
-        //     win.draw_image(
-        //         &flip(&transpose(&normalize(&uu), false), 0),
-        //         Some(format!("XY domain in iteration {}", &iter).to_string()),
-        //     );
+            win.set_view(0, 0);
+            win.set_colormap(ColorMap::SPECTRUM);
+            win.draw_image(
+                &flip(&transpose(&normalize(&uu), false), 0),
+                Some(format!("XY domain in iteration {}", &iter).to_string()),
+            );
 
-        //     win.set_view(0, 1);
-        //     win.set_axes_limits_2d(0.0, nx as f32, 0.0, ny as f32, true);
-        //     win.draw_vector_field2(
-        //         &flat(&view!(x[filter,filter])),
-        //         &flat(&view!(y[filter,filter])),
-        //         &flat(&view!(ux[filter,filter])),
-        //         &flat(&view!(uy[filter,filter])),
-        //         Some(format!("Velocity field in iteration {}", &iter).to_string()),
-        //     );
+            win.set_view(0, 1);
+            win.set_axes_limits_2d(0.0, nx as f32, 0.0, ny as f32, true);
+            win.draw_vector_field2(
+                &flat(&view!(x[filter,filter])),
+                &flat(&view!(y[filter,filter])),
+                &flat(&view!(ux[filter,filter])),
+                &flat(&view!(uy[filter,filter])),
+                Some(format!("Velocity field in iteration {}", &iter).to_string()),
+            );
 
-        //     win.show();
-        // }
+            win.show();
+        }
 
         let time = timer.elapsed().as_secs_f32();
         let updates = (total_nodes as FloatNum * iter as FloatNum * 10e-6) / time;
@@ -249,9 +249,6 @@ fn main() {
     set_device(0);
     info();
     println!("LBM D2Q9 simulation\n");
-    let write_csv = true;
-    let sizes = vec!(64u64, 128, 256, 512, 1024, 2048, 4096);
-    for s in 0..sizes.len() {
-        lbm(write_csv, sizes[s]);
-    }
+    let write_csv = false;
+    lbm(write_csv);
 }
