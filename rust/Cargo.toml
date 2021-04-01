@@ -24,3 +24,7 @@ path = "examples/d3q27_bgk_lid.rs"
 [[example]]
 name = "lid3mrt" # examples/d3q27_mrt_lid.rs
 path = "examples/d3q27_mrt_lid.rs"
+
+[[example]]
+name = "channel3mrt" # examples/d3q27_mrt_channel.rs
+path = "examples/d3q27_mrt_channel.rs"
