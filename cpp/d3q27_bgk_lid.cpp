@@ -107,7 +107,7 @@ static void lbm(bool console)
   array w(27, weights);
 
   array CI = (range(dim4(1, 26), 1) + 1) * total_nodes;
-                         // 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
+                                // 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
   unsigned int nb_index_arr[26] = {1,0,3,2,5,4,9,8,7, 6,13,12,11,10,17,16,15,14,25,24,23,22,21,20,19,18};
   array nbidx(26, nb_index_arr);
   array NBI = CI(span, nbidx);

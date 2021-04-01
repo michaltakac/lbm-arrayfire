@@ -7,6 +7,7 @@ edition = "2018"
 
 [dependencies]
 arrayfire = "3.8"
+csv = "1.0.0-beta.2"
 
 [[example]]
 name = "channel" # examples/d2q9_bgk_channel.rs
@@ -20,3 +21,10 @@ path = "examples/d2q9_bgk_lid.rs"
 name = "lid3" # examples/d3q27_bgk_lid.rs
 path = "examples/d3q27_bgk_lid.rs"
 
+[[example]]
+name = "lid3mrt" # examples/d3q27_mrt_lid.rs
+path = "examples/d3q27_mrt_lid.rs"
+
+[[example]]
+name = "channel3mrt" # examples/d3q27_mrt_channel.rs
+path = "examples/d3q27_mrt_channel.rs"

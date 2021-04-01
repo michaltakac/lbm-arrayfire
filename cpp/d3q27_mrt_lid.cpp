@@ -54,9 +54,9 @@ array stream(array f) {
 static void lbm()
 {
   // Grid length, number and spacing
-  const unsigned nx = 100;
-  const unsigned ny = 100;
-  const unsigned nz = 100;
+  const unsigned nx = 64;
+  const unsigned ny = 64;
+  const unsigned nz = 64;
 
   const unsigned total_nodes = nx * ny * nz;
 
@@ -68,10 +68,6 @@ static void lbm()
   const float uz_lid = 0;
   const float rho0 = 1.0;
 
-  const float t1 = 8. / 27.;
-  const float t2 = 2. / 27.;
-  const float t3 = 1. / 54.;
-  const float t4 = 1. / 216.;
   const float c_squ = 1. / 3.;
 
   array x = tile(range(nx), 1, ny * nz);
@@ -87,10 +83,6 @@ static void lbm()
   array ex(27, cx);
   array ey(27, cy);
   array ez(27, cz);
-
-  // weights
-  float weights[27] = {t1,t2,t2,t2,t2,t2,t2,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t3,t4,t4,t4,t4,t4,t4,t4,t4};
-  array w(27, weights);
 
   array CI = (range(dim4(1, 26), 1) + 1) * total_nodes;
                                 // 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
@@ -145,6 +137,7 @@ static void lbm()
   array S = diag(relax_params, 0, false);
   // array S = diag(constant(omega,27), 0, false); // = BGK, or
   // array S = diag(constant(1.2,27), 0, false); // = SRT set to constant
+  array S_t = S.T();
 
   // Kinetic viscosity
   float nu = (1.0f / sv - 0.5f) * c_squ * dt;
@@ -185,8 +178,11 @@ static void lbm()
   M(25, span) = ex * ex * ey * ey * ez;
   M(26, span) = ex * ex * ey * ey * ez * ez;
 
+  array M_t = M.T();
+
   // IM = M^-1
   array IM = pinverse(M);
+  array IM_t = IM.T();
 
   // Open lid
   array BOUND = constant(1, nx, ny, nz);
@@ -205,11 +201,11 @@ static void lbm()
   array UZ = constant(0, nx, ny, nz);
 
   // Particle distribution function in initial equilibrium state
-  array F = constant(rho0/27., 27, total_nodes);
+  array F = constant(rho0/27., total_nodes, 27);
   /*
    * MOMENTS
    */
-  array moments = matmul(M, F);
+  array moments = matmul(F, M_t);
 
   array UX_1d = flat(UX);
   array UY_1d = flat(UY);
@@ -233,39 +229,38 @@ static void lbm()
   /*
    * EQUILIBRIUM MOMENTS
    */
-  array meq = constant(0, 27, total_nodes);
-  meq(0, span) = DENSITY_1d;
-  meq(1, span) = rho_vx;
-  meq(2, span) = rho_vy;
-  meq(3, span) = rho_vz;
-  meq(4, span) = rho_vx * UY_1d;
-  meq(5, span) = rho_vx * UZ_1d;
-  meq(6, span) = rho_vy * UZ_1d;
-  meq(7, span) = DENSITY_1d + rho_vx * UX_1d + rho_vy * UY_1d + rho_vz * UZ_1d;
-  meq(8, span) = DENSITY_1d * (v_x_sq - v_y_sq);
-  meq(9, span) = DENSITY_1d * (v_x_sq - v_z_sq);
-  meq(10, span) = rho_cs_2 * UX_1d;
-  meq(11, span) = rho_cs_2 * UX_1d;
-  meq(12, span) = rho_cs_2 * UY_1d;
-  meq(13, span) = rho_cs_2 * UZ_1d;
-  meq(14, span) = rho_cs_2 * UY_1d;
-  meq(15, span) = rho_cs_2 * UZ_1d;
-  // meq(16,span) = 0; // Already initialized, zeroed
-  meq(17, span) = rho_cs_2 * (cs_2 + v_x_sq + v_y_sq);
-  meq(18, span) = rho_cs_2 * (cs_2 + v_x_sq + v_z_sq);
-  meq(19, span) = rho_cs_2 * (cs_2 + v_y_sq + v_z_sq);
-  meq(20, span) = rho_cs_2 * UY_1d * UZ_1d;
-  meq(21, span) = rho_cs_2 * UX_1d * UZ_1d;
-  meq(22, span) = rho_cs_2 * UX_1d * UY_1d;
-  meq(23, span) = rho_cs_4 * UX_1d;
-  meq(24, span) = rho_cs_4 * UY_1d;
-  meq(25, span) = rho_cs_4 * UZ_1d;
-  meq(26, span) = v_sq + rho_cs_6;
+  array meq = constant(0, total_nodes, 27);
+  meq(span, 0) = DENSITY_1d;
+  meq(span, 1) = rho_vx;
+  meq(span, 2) = rho_vy;
+  meq(span, 3) = rho_vz;
+  meq(span, 4) = rho_vx * UY_1d;
+  meq(span, 5) = rho_vx * UZ_1d;
+  meq(span, 6) = rho_vy * UZ_1d;
+  meq(span, 7) = DENSITY_1d + rho_vx * UX_1d + rho_vy * UY_1d + rho_vz * UZ_1d;
+  meq(span, 8) = DENSITY_1d * (v_x_sq - v_y_sq);
+  meq(span, 9) = DENSITY_1d * (v_x_sq - v_z_sq);
+  meq(span, 10) = rho_cs_2 * UX_1d;
+  meq(span, 11) = rho_cs_2 * UX_1d;
+  meq(span, 12) = rho_cs_2 * UY_1d;
+  meq(span, 13) = rho_cs_2 * UZ_1d;
+  meq(span, 14) = rho_cs_2 * UY_1d;
+  meq(span, 15) = rho_cs_2 * UZ_1d;
+  // meq(span, 16) = 0; // Already initialized, zeroed
+  meq(span, 17) = rho_cs_2 * (cs_2 + v_x_sq + v_y_sq);
+  meq(span, 18) = rho_cs_2 * (cs_2 + v_x_sq + v_z_sq);
+  meq(span, 19) = rho_cs_2 * (cs_2 + v_y_sq + v_z_sq);
+  meq(span, 20) = rho_cs_2 * UY_1d * UZ_1d;
+  meq(span, 21) = rho_cs_2 * UX_1d * UZ_1d;
+  meq(span, 22) = rho_cs_2 * UX_1d * UY_1d;
+  meq(span, 23) = rho_cs_4 * UX_1d;
+  meq(span, 24) = rho_cs_4 * UY_1d;
+  meq(span, 25) = rho_cs_4 * UZ_1d;
+  meq(span, 26) = v_sq + rho_cs_6;
 
-  array relaxation_part = matmul(S, (moments - meq));
+  array relaxation_part = matmul((moments - meq), S_t);
   array collided_moments = moments - relaxation_part;
-  array F_postcol = matmul(IM, collided_moments);
-  F = transpose(F_postcol);
+  F = matmul(collided_moments, IM_t);
 
   array uu;
 
@@ -309,12 +304,10 @@ static void lbm()
     UZ(ON) = 0;
     DENSITY(ON) = 0;
 
-    array F_t = transpose(F_2D);
-
     /*
      * MOMENTS
      */
-    moments = matmul(M, F_t);
+    moments = matmul(F_2D, M_t);
 
     UX_1d = flat(UX);
     UY_1d = flat(UY);
@@ -334,41 +327,40 @@ static void lbm()
     /*
      * EQUILIBRIUM MOMENTS
      */
-    meq(0, span) = DENSITY_1d;
-    meq(1, span) = rho_vx;
-    meq(2, span) = rho_vy;
-    meq(3, span) = rho_vz;
-    meq(4, span) = rho_vx * UY_1d;
-    meq(5, span) = rho_vx * UZ_1d;
-    meq(6, span) = rho_vy * UZ_1d;
-    meq(7, span) = DENSITY_1d + rho_vx * UX_1d + rho_vy * UY_1d + rho_vz * UZ_1d;
-    meq(8, span) = DENSITY_1d * (v_x_sq - v_y_sq);
-    meq(9, span) = DENSITY_1d * (v_x_sq - v_z_sq);
-    meq(10, span) = rho_cs_2 * UX_1d;
-    meq(11, span) = rho_cs_2 * UX_1d;
-    meq(12, span) = rho_cs_2 * UY_1d;
-    meq(13, span) = rho_cs_2 * UZ_1d;
-    meq(14, span) = rho_cs_2 * UY_1d;
-    meq(15, span) = rho_cs_2 * UZ_1d;
-    // meq(16,span) = 0; // Already initialized, zeroed
-    meq(17, span) = rho_cs_2 * (cs_2 + v_x_sq + v_y_sq);
-    meq(18, span) = rho_cs_2 * (cs_2 + v_x_sq + v_z_sq);
-    meq(19, span) = rho_cs_2 * (cs_2 + v_y_sq + v_z_sq);
-    meq(20, span) = rho_cs_2 * UY_1d * UZ_1d;
-    meq(21, span) = rho_cs_2 * UX_1d * UZ_1d;
-    meq(22, span) = rho_cs_2 * UX_1d * UY_1d;
-    meq(23, span) = rho_cs_4 * UX_1d;
-    meq(24, span) = rho_cs_4 * UY_1d;
-    meq(25, span) = rho_cs_4 * UZ_1d;
-    meq(26, span) = v_sq + rho_cs_6;
+    meq(span, 0) = DENSITY_1d;
+    meq(span, 1) = rho_vx;
+    meq(span, 2) = rho_vy;
+    meq(span, 3) = rho_vz;
+    meq(span, 4) = rho_vx * UY_1d;
+    meq(span, 5) = rho_vx * UZ_1d;
+    meq(span, 6) = rho_vy * UZ_1d;
+    meq(span, 7) = DENSITY_1d + rho_vx * UX_1d + rho_vy * UY_1d + rho_vz * UZ_1d;
+    meq(span, 8) = DENSITY_1d * (v_x_sq - v_y_sq);
+    meq(span, 9) = DENSITY_1d * (v_x_sq - v_z_sq);
+    meq(span, 10) = rho_cs_2 * UX_1d;
+    meq(span, 11) = rho_cs_2 * UX_1d;
+    meq(span, 12) = rho_cs_2 * UY_1d;
+    meq(span, 13) = rho_cs_2 * UZ_1d;
+    meq(span, 14) = rho_cs_2 * UY_1d;
+    meq(span, 15) = rho_cs_2 * UZ_1d;
+    // meq(span, 16) = 0; // Already initialized, zeroed
+    meq(span, 17) = rho_cs_2 * (cs_2 + v_x_sq + v_y_sq);
+    meq(span, 18) = rho_cs_2 * (cs_2 + v_x_sq + v_z_sq);
+    meq(span, 19) = rho_cs_2 * (cs_2 + v_y_sq + v_z_sq);
+    meq(span, 20) = rho_cs_2 * UY_1d * UZ_1d;
+    meq(span, 21) = rho_cs_2 * UX_1d * UZ_1d;
+    meq(span, 22) = rho_cs_2 * UX_1d * UY_1d;
+    meq(span, 23) = rho_cs_4 * UX_1d;
+    meq(span, 24) = rho_cs_4 * UY_1d;
+    meq(span, 25) = rho_cs_4 * UZ_1d;
+    meq(span, 26) = v_sq + rho_cs_6;
 
      /*
       * COLLISION STEP
       */
-    relaxation_part = matmul(S, (moments - meq));
+    relaxation_part = matmul((moments - meq), S_t);
     collided_moments = moments - relaxation_part;
-    F_postcol = matmul(IM, collided_moments);
-    F = transpose(F_postcol);
+    F = matmul(collided_moments, IM_t);
 
     F(REFLECTED) = BOUNCEDBACK;
 

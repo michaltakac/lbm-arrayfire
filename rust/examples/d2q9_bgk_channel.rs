@@ -1,5 +1,7 @@
 use arrayfire::*;
 use std::time::Instant;
+use std::error::Error;
+use csv::Writer;
 
 type FloatNum = f32;
 
@@ -20,7 +22,19 @@ fn stream(f: &Array<FloatNum>) -> Array<FloatNum> {
     pdf
 }
 
-fn lbm() {
+fn output_csv(mlups: Vec<FloatNum>, nx: u64, ny: u64) -> Result<(), Box<dyn Error>> {
+  let mut wtr = Writer::from_path(format!("benchmarks/GPU_NAME_d2q9_bgk_channel_mlups_{}_{}.csv", nx, ny))?;
+
+  wtr.write_record(&["Iterations", "MLUPS"])?;
+  for (i, item) in mlups.iter().enumerate() {
+    wtr.write_record(&[i.to_string(), item.to_string()])?;
+  }
+
+  wtr.flush()?;
+  Ok(())
+}
+
+fn lbm(write_csv: bool) {
     // Grid length, number and spacing
     let nx: u64 = 700;
     let ny: u64 = 300;
@@ -230,28 +244,38 @@ fn lbm() {
             win.show();
         }
 
-        sync(0);
-        let time = timer.elapsed().as_secs() as FloatNum;
-        mlups.push((total_nodes as FloatNum * iter as FloatNum * 10e-6) / time);
+        let time = timer.elapsed().as_secs_f32();
+        let updates = (total_nodes as FloatNum * iter as FloatNum * 10e-6) / time;
+
+        if !updates.is_nan() && !updates.is_infinite() {
+          mlups.push(updates);
+        }
 
         if iter % 100 == 0 {
             println!(
                 "{} iterations completed, {}s elapsed ({} MLUPS).",
-                iter, time, mlups[iter as usize]
+                iter, time, updates
             );
         }
 
         iter += 1;
+        sync(0);
     }
 
-    sync(0);
     mem_info!("After benchmark");
+    sync(0);
+
+    // output CSV of MLUPS data
+    if write_csv {
+      output_csv(mlups, nx, ny);
+    }
 }
 
 fn main() {
-    set_device(0);
     set_backend(Backend::OPENCL);
+    set_device(0);
     info();
     println!("LBM D2Q9 simulation\n");
-    lbm();
+    let write_csv = false;
+    lbm(write_csv);
 }
