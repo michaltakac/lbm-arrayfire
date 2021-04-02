@@ -3,7 +3,7 @@ use std::time::Instant;
 use std::error::Error;
 use csv::Writer;
 
-type FloatNum = f64;
+type FloatNum = f32;
 
 fn normalize(a: &Array<FloatNum>) -> Array<FloatNum> {
     (a / (max_all(&abs(a)).0 * 1.1 as FloatNum)) + 0.1 as FloatNum
@@ -48,7 +48,7 @@ fn stream(f: &Array<FloatNum>) -> Array<FloatNum> {
 }
 
 fn output_csv(mlups: Vec<FloatNum>, size: u64) -> Result<(), Box<dyn Error>> {
-  let mut wtr = Writer::from_path(format!("benchmarks/gtx1070_64bit_d3q27_mrt_lid_mlups_{}.csv", size))?;
+  let mut wtr = Writer::from_path(format!("benchmarks/rtx3090_64bit_d3q27_mrt_lid_mlups_{}.csv", size))?;
 
   wtr.write_record(&["Iterations", "MLUPS"])?;
   for (i, item) in mlups.iter().enumerate() {
@@ -426,7 +426,7 @@ fn lbm(write_csv: bool, size: u64) {
         //     win.show();
         // }
 
-        let time = timer.elapsed().as_secs_f64();
+        let time = timer.elapsed().as_secs_f32();
         let updates = (total_nodes as FloatNum * iter as FloatNum * 10e-6) / time;
 
         if !updates.is_nan() && !updates.is_infinite() {
