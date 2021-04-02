@@ -3,7 +3,7 @@ use std::time::Instant;
 use std::error::Error;
 use csv::Writer;
 
-type FloatNum = f32;
+type FloatNum = f64;
 
 fn normalize(a: &Array<FloatNum>) -> Array<FloatNum> {
     (a / (max_all(&abs(a)).0 * 1.1 as FloatNum)) + 0.1 as FloatNum
@@ -12,43 +12,43 @@ fn normalize(a: &Array<FloatNum>) -> Array<FloatNum> {
 fn stream(f: &Array<FloatNum>) -> Array<FloatNum> {
     let mut pdf = f.clone();
     // nearest-neighbours
-    eval!(pdf[1:1:0, 1:1:0, 1:1:1] = shift(&view!(f[1:1:0, 1:1:0, 1:1:1]), &[ 1, 0, 0, 0]));
-    eval!(pdf[1:1:0, 1:1:0, 2:2:1] = shift(&view!(f[1:1:0, 1:1:0, 2:2:1]), &[ -1, 0, 0, 0]));
-    eval!(pdf[1:1:0, 1:1:0, 3:3:1] = shift(&view!(f[1:1:0, 1:1:0, 3:3:1]), &[ 0, 1, 0, 0]));
-    eval!(pdf[1:1:0, 1:1:0, 4:4:1] = shift(&view!(f[1:1:0, 1:1:0, 4:4:1]), &[ 0, -1, 0, 0]));
-    eval!(pdf[1:1:0, 1:1:0, 5:5:1] = shift(&view!(f[1:1:0, 1:1:0, 5:5:1]), &[ 0, 0, 1, 0]));
-    eval!(pdf[1:1:0, 1:1:0, 6:6:1] = shift(&view!(f[1:1:0, 1:1:0, 6:6:1]), &[ 0, 0, -1, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 1:1:0, 1:1:1] = shift(&view!(f[1:1:0, 1:1:0, 1:1:0, 1:1:1]), &[ 1, 0, 0, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 1:1:0, 2:2:1] = shift(&view!(f[1:1:0, 1:1:0, 1:1:0, 2:2:1]), &[ -1, 0, 0, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 1:1:0, 3:3:1] = shift(&view!(f[1:1:0, 1:1:0, 1:1:0, 3:3:1]), &[ 0, 1, 0, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 1:1:0, 4:4:1] = shift(&view!(f[1:1:0, 1:1:0, 1:1:0, 4:4:1]), &[ 0, -1, 0, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 1:1:0, 5:5:1] = shift(&view!(f[1:1:0, 1:1:0, 1:1:0, 5:5:1]), &[ 0, 0, 1, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 1:1:0, 6:6:1] = shift(&view!(f[1:1:0, 1:1:0, 1:1:0, 6:6:1]), &[ 0, 0, -1, 0]));
     // next-nearest neighbours
     // xy plane
-    eval!(pdf[1:1:0, 1:1:0, 7:7:1] = shift(&view!(f[1:1:0, 1:1:0, 7:7:1]), &[ 1, 1, 0, 0]));
-    eval!(pdf[1:1:0, 1:1:0, 8:8:1] = shift(&view!(f[1:1:0, 1:1:0, 8:8:1]), &[ -1, 1, 0, 0]));
-    eval!(pdf[1:1:0, 1:1:0, 9:9:1] = shift(&view!(f[1:1:0, 1:1:0, 9:9:1]), &[ 1, -1, 0, 0]));
-    eval!(pdf[1:1:0, 1:1:0, 10:10:1] = shift(&view!(f[1:1:0, 1:1:0, 10:10:1]), &[ -1, -1, 0, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 1:1:0, 7:7:1] = shift(&view!(f[1:1:0, 1:1:0, 1:1:0, 7:7:1]), &[ 1, 1, 0, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 1:1:0, 8:8:1] = shift(&view!(f[1:1:0, 1:1:0, 1:1:0, 8:8:1]), &[ -1, 1, 0, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 1:1:0, 9:9:1] = shift(&view!(f[1:1:0, 1:1:0, 1:1:0, 9:9:1]), &[ 1, -1, 0, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 1:1:0, 10:10:1] = shift(&view!(f[1:1:0, 1:1:0, 1:1:0, 10:10:1]), &[ -1, -1, 0, 0]));
     // xz plane
-    eval!(pdf[1:1:0, 1:1:0, 11:11:1] = shift(&view!(f[1:1:0, 1:1:0, 11:11:1]), &[ 1, 0, 1, 0]));
-    eval!(pdf[1:1:0, 1:1:0, 12:12:1] = shift(&view!(f[1:1:0, 1:1:0, 12:12:1]), &[ -1, 0, 1, 0]));
-    eval!(pdf[1:1:0, 1:1:0, 13:13:1] = shift(&view!(f[1:1:0, 1:1:0, 13:13:1]), &[ 1, 0, -1, 0]));
-    eval!(pdf[1:1:0, 1:1:0, 14:14:1] = shift(&view!(f[1:1:0, 1:1:0, 14:14:1]), &[ -1, 0, -1, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 1:1:0, 11:11:1] = shift(&view!(f[1:1:0, 1:1:0, 1:1:0, 11:11:1]), &[ 1, 0, 1, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 1:1:0, 12:12:1] = shift(&view!(f[1:1:0, 1:1:0, 1:1:0, 12:12:1]), &[ -1, 0, 1, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 1:1:0, 13:13:1] = shift(&view!(f[1:1:0, 1:1:0, 1:1:0, 13:13:1]), &[ 1, 0, -1, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 1:1:0, 14:14:1] = shift(&view!(f[1:1:0, 1:1:0, 1:1:0, 14:14:1]), &[ -1, 0, -1, 0]));
     // yz plane
-    eval!(pdf[1:1:0, 1:1:0, 15:15:1] = shift(&view!(f[1:1:0, 1:1:0, 15:15:1]), &[ 0, 1, 1, 0]));
-    eval!(pdf[1:1:0, 1:1:0, 16:16:1] = shift(&view!(f[1:1:0, 1:1:0, 16:16:1]), &[ 0, -1, 1, 0]));
-    eval!(pdf[1:1:0, 1:1:0, 17:17:1] = shift(&view!(f[1:1:0, 1:1:0, 17:17:1]), &[ 0, 1, -1, 0]));
-    eval!(pdf[1:1:0, 1:1:0, 18:18:1] = shift(&view!(f[1:1:0, 1:1:0, 18:18:1]), &[ 0, -1, -1, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 1:1:0, 15:15:1] = shift(&view!(f[1:1:0, 1:1:0, 1:1:0, 15:15:1]), &[ 0, 1, 1, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 1:1:0, 16:16:1] = shift(&view!(f[1:1:0, 1:1:0, 1:1:0, 16:16:1]), &[ 0, -1, 1, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 1:1:0, 17:17:1] = shift(&view!(f[1:1:0, 1:1:0, 1:1:0, 17:17:1]), &[ 0, 1, -1, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 1:1:0, 18:18:1] = shift(&view!(f[1:1:0, 1:1:0, 1:1:0, 18:18:1]), &[ 0, -1, -1, 0]));
     // next next-nearest neighbours
-    eval!(pdf[1:1:0, 1:1:0, 19:19:1] = shift(&view!(f[1:1:0, 1:1:0, 19:19:1]), &[ 1, 1, 1, 0]));
-    eval!(pdf[1:1:0, 1:1:0, 20:20:1] = shift(&view!(f[1:1:0, 1:1:0, 20:20:1]), &[ -1, 1, 1, 0]));
-    eval!(pdf[1:1:0, 1:1:0, 21:21:1] = shift(&view!(f[1:1:0, 1:1:0, 21:21:1]), &[ 1, -1, 1, 0]));
-    eval!(pdf[1:1:0, 1:1:0, 22:22:1] = shift(&view!(f[1:1:0, 1:1:0, 22:22:1]), &[ -1, -1, 1, 0]));
-    eval!(pdf[1:1:0, 1:1:0, 23:23:1] = shift(&view!(f[1:1:0, 1:1:0, 23:23:1]), &[ 1, 1, -1, 0]));
-    eval!(pdf[1:1:0, 1:1:0, 24:24:1] = shift(&view!(f[1:1:0, 1:1:0, 24:24:1]), &[ -1, 1, -1, 0]));
-    eval!(pdf[1:1:0, 1:1:0, 25:25:1] = shift(&view!(f[1:1:0, 1:1:0, 25:25:1]), &[ 1, -1, -1, 0]));
-    eval!(pdf[1:1:0, 1:1:0, 26:26:1] = shift(&view!(f[1:1:0, 1:1:0, 26:26:1]), &[ -1, -1, -1, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 1:1:0, 19:19:1] = shift(&view!(f[1:1:0, 1:1:0, 1:1:0, 19:19:1]), &[ 1, 1, 1, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 1:1:0, 20:20:1] = shift(&view!(f[1:1:0, 1:1:0, 1:1:0, 20:20:1]), &[ -1, 1, 1, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 1:1:0, 21:21:1] = shift(&view!(f[1:1:0, 1:1:0, 1:1:0, 21:21:1]), &[ 1, -1, 1, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 1:1:0, 22:22:1] = shift(&view!(f[1:1:0, 1:1:0, 1:1:0, 22:22:1]), &[ -1, -1, 1, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 1:1:0, 23:23:1] = shift(&view!(f[1:1:0, 1:1:0, 1:1:0, 23:23:1]), &[ 1, 1, -1, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 1:1:0, 24:24:1] = shift(&view!(f[1:1:0, 1:1:0, 1:1:0, 24:24:1]), &[ -1, 1, -1, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 1:1:0, 25:25:1] = shift(&view!(f[1:1:0, 1:1:0, 1:1:0, 25:25:1]), &[ 1, -1, -1, 0]));
+    eval!(pdf[1:1:0, 1:1:0, 1:1:0, 26:26:1] = shift(&view!(f[1:1:0, 1:1:0, 1:1:0, 26:26:1]), &[ -1, -1, -1, 0]));
 
     pdf
 }
 
-fn output_csv(mlups: Vec<f32>, size: u64) -> Result<(), Box<dyn Error>> {
-  let mut wtr = Writer::from_path(format!("benchmarks/GPU_NAME_d3q27_mrt_lid_mlups_{}.csv", size))?;
+fn output_csv(mlups: Vec<FloatNum>, size: u64) -> Result<(), Box<dyn Error>> {
+  let mut wtr = Writer::from_path(format!("benchmarks/gtx1070_64bit_d3q27_mrt_lid_mlups_{}.csv", size))?;
 
   wtr.write_record(&["Iterations", "MLUPS"])?;
   for (i, item) in mlups.iter().enumerate() {
@@ -59,11 +59,13 @@ fn output_csv(mlups: Vec<f32>, size: u64) -> Result<(), Box<dyn Error>> {
   Ok(())
 }
 
-fn lbm(write_csv: bool) {
+fn lbm(write_csv: bool, size: u64) {
     // Grid length, number and spacing
-    let nx: u64 = 64;
-    let ny: u64 = 64;
-    let nz: u64 = 64;
+    let nx: u64 = size;
+    let ny: u64 = size;
+    let nz: u64 = size;
+
+    println!("Size: {}", &size);
 
     let total_nodes = nx * ny * nz;
 
@@ -91,13 +93,14 @@ fn lbm(write_csv: bool) {
     let lidy = seq!(1, ny as i32 - 2, 1);
     let end_y = seq!(nx as i32 - 1, ny as i32 - 1, 1);
 
+
     // Discrete velocities
     let ex = Array::<FloatNum>::new(&[0., 1.,-1., 0., 0., 0., 0., 1.,-1., 1.,-1., 1.,-1., 1.,-1., 0., 0., 0., 0., 1.,-1., 1.,-1., 1.,-1., 1.,-1.], dim4!(27));
     let ey = Array::<FloatNum>::new(&[0., 0., 0., 1.,-1., 0., 0., 1., 1.,-1.,-1., 0., 0., 0., 0., 1.,-1., 1.,-1., 1., 1.,-1.,-1., 1., 1.,-1.,-1.], dim4!(27));
     let ez = Array::<FloatNum>::new(&[0., 0., 0., 0., 0., 1.,-1., 0., 0., 0., 0., 1., 1.,-1.,-1., 1., 1.,-1.,-1., 1., 1., 1., 1.,-1.,-1.,-1.,-1.], dim4!(27));
 
     let ci: Array<u64> = (range::<u64>(dim4!(1, 26), 1) + 1) * total_nodes;
-                                          // 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
+                          // 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26
     let nbidx = Array::new(&[1,0,3,2,5,4,9,8,7, 6,13,12,11,10,17,16,15,14,25,24,23,22,21,20,19,18], dim4!(26));
     let nbi: Array<u64> = view!(ci[span, nbidx]);
 
@@ -282,10 +285,11 @@ fn lbm(write_csv: bool) {
     let relaxation_part = matmul(&(&m - &meq), &s_t, MatProp::NONE, MatProp::NONE);
     let collided_moments = &m - &relaxation_part;
     f = matmul(&collided_moments, &tm_inv_t, MatProp::NONE, MatProp::NONE);
+    println!("hello");
 
     // Create a window to show the waves.
-    let mut win = Window::new(1536, 768, "LBM solver using ArrayFire".to_string());
-    win.grid(2, 2);
+    // let mut win = Window::new(1536, 768, "LBM solver using ArrayFire".to_string());
+    // win.grid(2, 2);
 
     let mut iter: u64 = 0;
     let maxiter: u64 = 5000;
@@ -296,7 +300,7 @@ fn lbm(write_csv: bool) {
 
     mem_info!("Before benchmark");
 
-    while !win.is_closed() && iter < maxiter {
+    while iter < maxiter {
         // Streaming by reading from neighbors (with pre-built index) - pull scheme
         let f_streamed = view!(f[nb_index]);
 
@@ -386,43 +390,43 @@ fn lbm(write_csv: bool) {
         eval!(f[reflected] = bouncedback);
 
         // Visualization
-        if iter % 10 == 0 {
-            let mut uu = moddims(&sqrt(&v_sq), dims);
-            eval!(uu[on] = constant::<FloatNum>(FloatNum::NAN, on.dims()));
+        // if iter % 10 == 0 {
+        //     let mut uu = moddims(&sqrt(&v_sq), dims);
+        //     eval!(uu[on] = constant::<FloatNum>(FloatNum::NAN, on.dims()));
 
-            let filter = seq!(0, nx as i32 - 1, nx as i32 / 30);
-            let z_section = seq!(nz as i32 / 2, nz as i32 / 2, 1);
+        //     let filter = seq!(0, nx as i32 - 1, nx as i32 / 30);
+        //     let z_section = seq!(nz as i32 / 2, nz as i32 / 2, 1);
 
-            let xy_view = index(&reorder_v2(&normalize(&uu), 1, 0, Some(vec![2])), &[span, span, z_section]);
+        //     let xy_view = index(&reorder_v2(&normalize(&uu), 1, 0, Some(vec![2])), &[span, span, z_section]);
 
-            win.set_view(0, 0);
-            win.set_colormap(ColorMap::SPECTRUM);
-            win.draw_image(
-              &flip(&transpose(&xy_view, false), 0),
-              Some(format!("XY domain in iteration {}", &iter).to_string()),
-            );
+        //     win.set_view(0, 0);
+        //     win.set_colormap(ColorMap::SPECTRUM);
+        //     win.draw_image(
+        //       &flip(&transpose(&xy_view, false), 0),
+        //       Some(format!("XY domain in iteration {}", &iter).to_string()),
+        //     );
 
-            win.set_view(0, 1);
-            win.set_axes_limits_2d(0.0f32, nx as f32, 0.0f32, ny as f32, true);
-            win.draw_vector_field2(
-                &flat(&view!(x[filter,filter])),
-                &flat(&view!(y[filter,filter])),
-                &flat(&view!(ux[filter,filter,z_section])),
-                &flat(&view!(uy[filter,filter,z_section])),
-                Some(format!("Velocity field in iteration {}", &iter).to_string()),
-            );
+        //     win.set_view(0, 1);
+        //     win.set_axes_limits_2d(0.0f32, nx as f32, 0.0f32, ny as f32, true);
+        //     win.draw_vector_field2(
+        //         &flat(&view!(x[filter,filter])),
+        //         &flat(&view!(y[filter,filter])),
+        //         &flat(&view!(ux[filter,filter,z_section])),
+        //         &flat(&view!(uy[filter,filter,z_section])),
+        //         Some(format!("Velocity field in iteration {}", &iter).to_string()),
+        //     );
 
-            win.set_view(1, 0);
-            win.set_colormap(ColorMap::SPECTRUM);
-            win.draw_image(
-              &normalize(&index(&uu, &[span, span, z_section])),
-              Some(format!("XY domain in iteration {}", &iter).to_string()),
-            );
+        //     win.set_view(1, 0);
+        //     win.set_colormap(ColorMap::SPECTRUM);
+        //     win.draw_image(
+        //       &normalize(&index(&uu, &[span, span, z_section])),
+        //       Some(format!("XY domain in iteration {}", &iter).to_string()),
+        //     );
 
-            win.show();
-        }
+        //     win.show();
+        // }
 
-        let time = timer.elapsed().as_secs_f32();
+        let time = timer.elapsed().as_secs_f64();
         let updates = (total_nodes as FloatNum * iter as FloatNum * 10e-6) / time;
 
         if !updates.is_nan() && !updates.is_infinite() {
@@ -454,6 +458,9 @@ fn main() {
     set_backend(Backend::OPENCL);
     info();
     println!("LBM D3Q27 simulation\n");
-    let write_csv = false;
-    lbm(write_csv);
+    let write_csv = true;
+    let sizes: [u64; 6] = [16u64, 32, 64, 128, 256, 512];
+    for size in sizes.iter() {
+      lbm(write_csv, *size);
+    }
 }
