@@ -48,7 +48,7 @@ fn stream(f: &Array<FloatNum>) -> Array<FloatNum> {
 }
 
 fn output_csv(mlups: Vec<FloatNum>, size: u64) -> Result<(), Box<dyn Error>> {
-  let mut wtr = Writer::from_path(format!("benchmarks/rtx3090_64bit_d3q27_mrt_lid_mlups_{}.csv", size))?;
+  let mut wtr = Writer::from_path(format!("benchmarks/GPU_NAME_d3q27_mrt_lid_mlups_{}.csv", size))?;
 
   wtr.write_record(&["Iterations", "MLUPS"])?;
   for (i, item) in mlups.iter().enumerate() {
@@ -285,7 +285,6 @@ fn lbm(write_csv: bool, size: u64) {
     let relaxation_part = matmul(&(&m - &meq), &s_t, MatProp::NONE, MatProp::NONE);
     let collided_moments = &m - &relaxation_part;
     f = matmul(&collided_moments, &tm_inv_t, MatProp::NONE, MatProp::NONE);
-    println!("hello");
 
     // Create a window to show the waves.
     // let mut win = Window::new(1536, 768, "LBM solver using ArrayFire".to_string());
