@@ -157,8 +157,8 @@ fn lbm(write_csv: bool) {
             - (1.5 as FloatNum) * (&tile(&flat(&u_sq), dim4!(9))));
 
     // Create a window to show the waves.
-    let mut win = Window::new(1536, 768, "LBM solver using ArrayFire".to_string());
-    win.grid(2, 1);
+    // let mut win = Window::new(1536, 768, "LBM solver using ArrayFire".to_string());
+    // win.grid(2, 1);
 
     let mut iter: u64 = 0;
     let maxiter: u64 = 10000;
@@ -169,7 +169,7 @@ fn lbm(write_csv: bool) {
 
     mem_info!("Before benchmark");
 
-    while !win.is_closed() && iter < maxiter {
+    while iter < maxiter {
         // Streaming by reading from neighbors (with pre-built index) - pull scheme
         let f_streamed = view!(f[nb_index]);
 
@@ -217,32 +217,32 @@ fn lbm(write_csv: bool) {
         eval!(f[reflected] = bouncedback);
 
         // Visualization
-        if iter % 10 == 0 {
-            let mut uu = moddims(&sqrt(&u_sq), dims);
-            eval!(uu[on] = constant::<FloatNum>(FloatNum::NAN, on.dims()));
+        // if iter % 10 == 0 {
+        //     let mut uu = moddims(&sqrt(&u_sq), dims);
+        //     eval!(uu[on] = constant::<FloatNum>(FloatNum::NAN, on.dims()));
 
-            let filter_x = seq!(0, nx as i32 - 1, nx as i32 / 25);
-            let filter_y = seq!(0, ny as i32 - 1, ny as i32 / 20);
+        //     let filter_x = seq!(0, nx as i32 - 1, nx as i32 / 25);
+        //     let filter_y = seq!(0, ny as i32 - 1, ny as i32 / 20);
 
-            win.set_view(0, 0);
-            win.set_colormap(ColorMap::COLORS);
-            win.draw_image(
-                &transpose(&normalize(&uu), false),
-                Some(format!("XY domain in iteration {}", &iter).to_string()),
-            );
+        //     win.set_view(0, 0);
+        //     win.set_colormap(ColorMap::COLORS);
+        //     win.draw_image(
+        //         &transpose(&normalize(&uu), false),
+        //         Some(format!("XY domain in iteration {}", &iter).to_string()),
+        //     );
 
-            win.set_view(1, 0);
-            win.set_axes_limits_2d(0.0, nx as f32, 0.0, ny as f32, true);
-            win.draw_vector_field2(
-                &flat(&view!(x[filter_x,filter_y])),
-                &flat(&view!(y[filter_x,filter_y])),
-                &flat(&view!(ux[filter_x,filter_y])),
-                &flat(&view!(uy[filter_x,filter_y])),
-                Some(format!("Velocity field in iteration {}", &iter).to_string()),
-            );
+        //     win.set_view(1, 0);
+        //     win.set_axes_limits_2d(0.0, nx as f32, 0.0, ny as f32, true);
+        //     win.draw_vector_field2(
+        //         &flat(&view!(x[filter_x,filter_y])),
+        //         &flat(&view!(y[filter_x,filter_y])),
+        //         &flat(&view!(ux[filter_x,filter_y])),
+        //         &flat(&view!(uy[filter_x,filter_y])),
+        //         Some(format!("Velocity field in iteration {}", &iter).to_string()),
+        //     );
 
-            win.show();
-        }
+        //     win.show();
+        // }
 
         let time = timer.elapsed().as_secs_f32();
         let updates = (total_nodes as FloatNum * iter as FloatNum * 10e-6) / time;
@@ -276,6 +276,6 @@ fn main() {
     set_device(0);
     info();
     println!("LBM D2Q9 simulation\n");
-    let write_csv = false;
+    let write_csv = true;
     lbm(write_csv);
 }
