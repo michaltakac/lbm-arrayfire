@@ -191,31 +191,31 @@ fn lbm(write_csv: bool) {
         eval!(f[reflected] = bouncedback);
 
         // Visualization
-        // if iter % 10 == 0 {
-        //     let mut uu = moddims(&sqrt(&u_sq), dims);
-        //     eval!(uu[on] = constant::<FloatNum>(FloatNum::NAN, on.dims()));
+        if iter % 10 == 0 {
+            let mut uu = moddims(&sqrt(&u_sq), dims);
+            eval!(uu[on] = constant::<FloatNum>(FloatNum::NAN, on.dims()));
 
-        //     let filter = seq!(0, nx as i32 - 1, nx as i32 / 30);
+            let filter = seq!(0, nx as i32 - 1, nx as i32 / 30);
 
-        //     win.set_view(0, 0);
-        //     win.set_colormap(ColorMap::SPECTRUM);
-        //     win.draw_image(
-        //         &flip(&transpose(&normalize(&uu), false), 0),
-        //         Some(format!("XY domain in iteration {}", &iter).to_string()),
-        //     );
+            win.set_view(0, 0);
+            win.set_colormap(ColorMap::SPECTRUM);
+            win.draw_image(
+                &flip(&transpose(&normalize(&uu), false), 0),
+                Some(format!("XY domain in iteration {}", &iter).to_string()),
+            );
 
-        //     win.set_view(0, 1);
-        //     win.set_axes_limits_2d(0.0, nx as f32, 0.0, ny as f32, true);
-        //     win.draw_vector_field2(
-        //         &flat(&view!(x[filter,filter])),
-        //         &flat(&view!(y[filter,filter])),
-        //         &flat(&view!(ux[filter,filter])),
-        //         &flat(&view!(uy[filter,filter])),
-        //         Some(format!("Velocity field in iteration {}", &iter).to_string()),
-        //     );
+            win.set_view(0, 1);
+            win.set_axes_limits_2d(0.0, nx as f32, 0.0, ny as f32, true);
+            win.draw_vector_field2(
+                &flat(&view!(x[filter,filter])),
+                &flat(&view!(y[filter,filter])),
+                &flat(&view!(ux[filter,filter])),
+                &flat(&view!(uy[filter,filter])),
+                Some(format!("Velocity field in iteration {}", &iter).to_string()),
+            );
 
-        //     win.show();
-        // }
+            win.show();
+        }
 
         let time = timer.elapsed().as_secs_f32();
         let updates = (total_nodes as FloatNum * iter as FloatNum * 10e-6) / time;
@@ -249,6 +249,6 @@ fn main() {
     set_device(0);
     info();
     println!("LBM D2Q9 simulation\n");
-    let write_csv = true;
+    let write_csv = false;
     lbm(write_csv);
 }
