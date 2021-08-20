@@ -136,8 +136,8 @@ fn lbm(write_csv: bool) {
             - (1.5 as FloatNum) * (&tile(&flat(&u_sq), dim4!(9))));
 
     // Create a window to show the waves.
-    // let mut win = Window::new(1536, 768, "LBM solver using ArrayFire".to_string());
-    // win.grid(1, 2);
+    let mut win = Window::new(1536, 768, "LBM solver using ArrayFire".to_string());
+    win.grid(1, 2);
 
     let mut iter: u64 = 0;
     let maxiter: u64 = 5000;
@@ -148,7 +148,7 @@ fn lbm(write_csv: bool) {
 
     mem_info!("Before benchmark");
 
-    while iter < maxiter {
+    while !win.is_closed() && iter < maxiter {
         // Streaming by reading from neighbors (with pre-built index) - pull scheme
         let f_streamed = view!(f[nb_index]);
 

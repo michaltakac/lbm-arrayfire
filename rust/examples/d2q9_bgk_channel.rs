@@ -36,8 +36,8 @@ fn output_csv(mlups: Vec<FloatNum>, nx: u64, ny: u64) -> Result<(), Box<dyn Erro
 
 fn lbm(write_csv: bool) {
     // Grid length, number and spacing
-    let nx: u64 = 700;
-    let ny: u64 = 300;
+    let nx: u64 = 300;
+    let ny: u64 = 100;
 
     let total_nodes = nx * ny;
 
@@ -157,8 +157,8 @@ fn lbm(write_csv: bool) {
             - (1.5 as FloatNum) * (&tile(&flat(&u_sq), dim4!(9))));
 
     // Create a window to show the waves.
-    // let mut win = Window::new(1536, 768, "LBM solver using ArrayFire".to_string());
-    // win.grid(2, 1);
+    let mut win = Window::new(1536, 768, "LBM solver using ArrayFire".to_string());
+    win.grid(2, 1);
 
     let mut iter: u64 = 0;
     let maxiter: u64 = 10000;
@@ -169,7 +169,7 @@ fn lbm(write_csv: bool) {
 
     mem_info!("Before benchmark");
 
-    while iter < maxiter {
+    while !win.is_closed() && iter < maxiter {
         // Streaming by reading from neighbors (with pre-built index) - pull scheme
         let f_streamed = view!(f[nb_index]);
 
