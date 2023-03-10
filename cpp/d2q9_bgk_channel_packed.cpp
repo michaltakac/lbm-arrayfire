@@ -23,7 +23,7 @@ int main(int argc, char *argv[]) {
   float cx[9] = {0., 1., 0.,-1., 0., 1.,-1.,-1., 1.}; // discrete velocities in x-direction
   float cy[9] = {0., 0., 1., 0.,-1., 1., 1.,-1.,-1.}; // discrete velocities in y-direction
   array ex(9, cx);
-  array ey(9, cx);
+  array ey(9, cy);
   float weights[9] = {t1,t2,t2,t2,t2,t3,t3,t3,t3};
   array w(9, weights);
   array CI = (range(dim4(1,8),1)+1) * total_nodes;
