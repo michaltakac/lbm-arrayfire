@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LBM Performance Benchmarks</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-gradient-to-r from-blue-600 to-blue-800 shadow-lg">
+            <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+                <h1 class="text-3xl font-bold text-white">LBM Performance Benchmarks</h1>
+                <p class="mt-2 text-blue-100">Lattice Boltzmann Method Performance Analysis</p>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+            <!-- Controls Section -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">Filters</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">GPU Model</label>
+                        <select id="modelSelect" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            <option value="all">All GPU Models</option>
+                            <option value="rtx3090">RTX 3090</option>
+                            <option value="gtx1070">GTX 1070</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Precision</label>
+                        <select id="precisionSelect" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            <option value="all">All Precisions</option>
+                            <option value="32bit">32-bit</option>
+                            <option value="64bit">64-bit</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Method</label>
+                        <select id="methodSelect" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            <option value="all">All Methods</option>
+                            <option value="d2q9_bgk">D2Q9 BGK</option>
+                            <option value="d3q27_mrt">D3Q27 MRT</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chart Section -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">Performance Comparison</h2>
+                <div id="performancePlot" class="w-full h-[600px]"></div>
+            </div>
+
+            <!-- Stats Section -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Peak Performance</h3>
+                    <div id="peakStats" class="text-3xl font-bold text-blue-600"></div>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Average Performance</h3>
+                    <div id="avgStats" class="text-3xl font-bold text-green-600"></div>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Total Configurations</h3>
+                    <div id="configStats" class="text-3xl font-bold text-purple-600"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Function to parse CSV content
+        function parseCSV(csv) {
+            const lines = csv.trim().split('\n');
+            const headers = lines[0].split(',');
+            const data = [];
+            
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',');
+                if (values.length === headers.length) {
+                    data.push({
+                        iteration: parseFloat(values[0]),
+                        mlups: parseFloat(values[1])
+                    });
+                }
+            }
+            
+            return data;
+        }
+
+        // Function to extract metadata from filename
+        function parseFilename(filename) {
+            const parts = filename.split('_');
+            return {
+                gpu: parts[0],
+                precision: parts[1],
+                method: `${parts[2]}_${parts[3]}`,
+                problem: parts[4],
+                size: parts.slice(5).join('_').replace('.csv', '')
+            };
+        }
+
+        // Function to load and plot data
+        async function loadAndPlotData() {
+            const files = [
+                // 32-bit D2Q9 BGK Lid files
+                'rtx3090_32bit_d2q9_bgk_lid_mlups_64.csv',
+                'rtx3090_32bit_d2q9_bgk_lid_mlups_128.csv',
+                'rtx3090_32bit_d2q9_bgk_lid_mlups_256.csv',
+                'rtx3090_32bit_d2q9_bgk_lid_mlups_512.csv',
+                'rtx3090_32bit_d2q9_bgk_lid_mlups_1024.csv',
+                'rtx3090_32bit_d2q9_bgk_lid_mlups_2048.csv',
+                'rtx3090_32bit_d2q9_bgk_lid_mlups_4096.csv',
+                
+                // 32-bit D2Q9 BGK Channel files
+                'rtx3090_32bit_d2q9_bgk_channel_mlups_10000_3000.csv',
+                
+                // 32-bit D3Q27 MRT Lid files
+                'rtx3090_32bit_d3q27_mrt_lid_mlups_16.csv',
+                'rtx3090_32bit_d3q27_mrt_lid_mlups_32.csv',
+                'rtx3090_32bit_d3q27_mrt_lid_mlups_64.csv',
+                'rtx3090_32bit_d3q27_mrt_lid_mlups_128.csv',
+                
+                // 64-bit D2Q9 BGK Channel files
+                'rtx3090_64bit_d2q9_bgk_channel_mlups_300_100.csv',
+                'rtx3090_64bit_d2q9_bgk_channel_mlups_420_150.csv',
+                'rtx3090_64bit_d2q9_bgk_channel_mlups_600_200.csv',
+                'rtx3090_64bit_d2q9_bgk_channel_mlups_1000_300.csv',
+                'rtx3090_64bit_d2q9_bgk_channel_mlups_1500_400.csv',
+                'rtx3090_64bit_d2q9_bgk_channel_mlups_2000_500.csv',
+                'rtx3090_64bit_d2q9_bgk_channel_mlups_3000_1000.csv',
+                'rtx3090_64bit_d2q9_bgk_channel_mlups_4200_1500.csv',
+                'rtx3090_64bit_d2q9_bgk_channel_mlups_6000_2000.csv',
+                'rtx3090_64bit_d2q9_bgk_channel_mlups_10000_3000.csv',
+                
+                // 64-bit D2Q9 BGK Lid files
+                'rtx3090_64bit_d2q9_bgk_lid_mlups_64.csv',
+                'rtx3090_64bit_d2q9_bgk_lid_mlups_128.csv',
+                'rtx3090_64bit_d2q9_bgk_lid_mlups_256.csv',
+                'rtx3090_64bit_d2q9_bgk_lid_mlups_512.csv',
+                'rtx3090_64bit_d2q9_bgk_lid_mlups_1024.csv',
+                'rtx3090_64bit_d2q9_bgk_lid_mlups_2048.csv',
+                'rtx3090_64bit_d2q9_bgk_lid_mlups_4096.csv',
+                
+                // 64-bit D3Q27 MRT Lid files
+                'rtx3090_64bit_d3q27_mrt_lid_mlups_16.csv',
+                'rtx3090_64bit_d3q27_mrt_lid_mlups_32.csv',
+                'rtx3090_64bit_d3q27_mrt_lid_mlups_64.csv',
+                'rtx3090_64bit_d3q27_mrt_lid_mlups_128.csv'
+            ];
+
+            const traces = [];
+            let peakMlups = 0;
+            let totalMlups = 0;
+            let dataPoints = 0;
+            
+            for (const file of files) {
+                const response = await fetch(file);
+                const csvContent = await response.text();
+                const data = parseCSV(csvContent);
+                const metadata = parseFilename(file);
+
+                // Calculate statistics
+                const mlups = data.map(d => d.mlups);
+                peakMlups = Math.max(peakMlups, Math.max(...mlups));
+                totalMlups += mlups.reduce((a, b) => a + b, 0);
+                dataPoints += mlups.length;
+
+                traces.push({
+                    x: data.map(d => d.iteration),
+                    y: mlups,
+                    name: `${metadata.method} (${metadata.precision}, ${metadata.size})`,
+                    mode: 'lines',
+                    hovertemplate: 'Iteration: %{x}<br>MLUPS: %{y:.2f}<extra></extra>'
+                });
+            }
+
+            // Update statistics displays
+            document.getElementById('peakStats').textContent = `${peakMlups.toFixed(2)} MLUPS`;
+            document.getElementById('avgStats').textContent = `${(totalMlups / dataPoints).toFixed(2)} MLUPS`;
+            document.getElementById('configStats').textContent = files.length;
+
+            const layout = {
+                template: 'plotly_white',
+                title: {
+                    text: 'MLUPS vs Iterations',
+                    font: { size: 24 }
+                },
+                xaxis: {
+                    title: 'Iterations',
+                    type: 'log',
+                    gridcolor: 'rgba(0,0,0,0.1)'
+                },
+                yaxis: {
+                    title: 'MLUPS',
+                    type: 'log',
+                    gridcolor: 'rgba(0,0,0,0.1)'
+                },
+                hovermode: 'closest',
+                showlegend: true,
+                legend: {
+                    x: 1.1,
+                    xanchor: 'right',
+                    y: 1,
+                    bgcolor: 'rgba(255,255,255,0.9)',
+                    bordercolor: 'rgba(0,0,0,0.2)',
+                    borderwidth: 1
+                },
+                margin: { r: 200 }
+            };
+
+            const config = {
+                responsive: true,
+                displayModeBar: true,
+                displaylogo: false,
+                modeBarButtonsToRemove: ['lasso2d', 'select2d']
+            };
+
+            Plotly.newPlot('performancePlot', traces, layout, config);
+        }
+
+        // Add event listeners for filters
+        document.getElementById('modelSelect').addEventListener('change', updatePlot);
+        document.getElementById('precisionSelect').addEventListener('change', updatePlot);
+        document.getElementById('methodSelect').addEventListener('change', updatePlot);
+
+        // Function to update plot based on filters
+        function updatePlot() {
+            const model = document.getElementById('modelSelect').value;
+            const precision = document.getElementById('precisionSelect').value;
+            const method = document.getElementById('methodSelect').value;
+
+            const update = {
+                visible: document.getElementById('performancePlot').data.map(trace => {
+                    const name = trace.name.toLowerCase();
+                    return (model === 'all' || name.includes(model)) &&
+                           (precision === 'all' || name.includes(precision)) &&
+                           (method === 'all' || name.includes(method));
+                })
+            };
+
+            Plotly.update('performancePlot', update);
+        }
+
+        // Initial load
+        loadAndPlotData();
+    </script>
+</body>
+</html>
